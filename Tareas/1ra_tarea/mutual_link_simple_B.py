@@ -17,5 +17,5 @@ def simulate(nr, nc):
     start_time = time.time()
     result = mutual_outlinks(links)
     elapsed_time = time.time() - start_time
-    print(f"Resultado: {result}, Tiempo transcurrido: {elapsed_time:.12f} segundos")
+    print(f"Resultado B: {result}, Tiempo transcurrido: {elapsed_time:.12f} segundos")
     return result, elapsed_time

@@ -7,6 +7,39 @@ import mutual_link_simple as case_a
 import mutual_link_simple_B as case_b
 
 
+def Graficar_Comparativa(workers, resultados_a, resultados_b, dimensiones_interes):
+    """
+    dimensiones_interes: lista de los índices de las dimensiones que queremos graficar
+    (ej: [0, 2, 3] para 5x5, 500x500 y 1000x1000)
+    """
+    fig, axs = plt.subplots(3, 1, figsize=(10, 15))
+    titulos = ["Matriz Base (5,5)", "Matriz Base (500,500)", "Matriz Base (1000,1000)"]
+
+    for idx, ax in enumerate(axs):
+        dim_idx = dimensiones_interes[idx]
+
+        ax.plot(
+            workers, resultados_a[dim_idx], "o-", color="#1f77b4", label="A_paralelo"
+        )
+        ax.plot(
+            workers, resultados_b[dim_idx], "s-", color="#ff7f0e", label="B_paralelo"
+        )
+
+        ax.set_title(titulos[idx], fontweight="bold")
+        ax.set_ylabel("Tiempo promedio (s)")
+        ax.set_xlabel("Número de Procesos (Workers)")
+        ax.grid(True, linestyle="--", alpha=0.7)
+        ax.legend()
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    fig.suptitle(
+        "Comparativa de Rendimiento: Escalabilidad de Procesos",
+        fontsize=16,
+        fontweight="bold",
+    )
+    plt.show()
+
+
 def Graficar(dimensions, mean_a, mean_b):
     fig, axs = plt.subplots(3, 1, figsize=(10, 15), sharex=True)
 
@@ -55,6 +88,7 @@ def main():
     print(times_a)
 
     for i, dimension in enumerate(dimensions):
+        print(f"Probando Dimensión {dimension}...")
         for j in range(10):
             result_a, elapsed_time_a = case_a.simulate(dimension, dimension)
             result_b, elapsed_time_b = case_b.simulate(dimension, dimension)
@@ -68,21 +102,34 @@ def main():
 
 
 def main_parallel():
-    dimensions = [5, 50, 100, 1000]
-    times_a = np.zeros(shape=(len(dimensions), 10))
-    times_b = np.zeros(shape=(len(dimensions), 10))
+    dimensions = [5, 50, 500, 1000]
+    workers = [2, 4, 8, 16, 32]
+    repeticiones = 10
 
-    for i, dimension in enumerate(dimensions):
-        for j in range(10):
-            result_a, elapsed_time_a = case_a.simulate_parallel(dimension, dimension)
-            # result_b, elapsed_time_b = case_b.simulate(dimension, dimension)
-            times_a[i, j] = elapsed_time_a
-            # times_b[i, j] = elapsed_time_b
+    promedios_a = np.zeros((len(dimensions), len(workers)))
+    promedios_b = np.zeros((len(dimensions), len(workers)))
 
-    mean_a = np.mean(times_a, axis=1)
-    # mean_b = np.mean(times_b, axis=1)
+    for i, dim in enumerate(dimensions):
+        for j, n_w in enumerate(workers):
+            tiempos_iter_a = []
+            tiempos_iter_b = []
 
-    # Graficar(dimensions, mean_a, mean_b)
+            print(f"Probando Dimensión {dim} con {n_w} workers...")
+
+            for _ in range(repeticiones):
+                # Ejecución Caso A
+                _, t_a = case_a.simulate_parallel(dim, dim, n_w)
+                tiempos_iter_a.append(t_a)
+
+                # Ejecución Caso B
+                # _, t_b = case_b.simulate_parallel(dim, dim, n_w)
+                # tiempos_iter_b.append(t_b)
+
+            promedios_a[i, j] = np.mean(tiempos_iter_a)
+            # promedios_b[i, j] = np.mean(tiempos_iter_b)
+
+    promedios_b = promedios_a
+    Graficar_Comparativa(workers, promedios_a, promedios_b, [0, 2, 3])
 
 
 if __name__ == "__main__":
