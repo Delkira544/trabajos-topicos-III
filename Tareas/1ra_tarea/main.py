@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -65,5 +67,33 @@ def main():
     Graficar(dimensions, mean_a, mean_b)
 
 
+def main_parallel():
+    dimensions = [5, 50, 100, 1000]
+    times_a = np.zeros(shape=(len(dimensions), 10))
+    times_b = np.zeros(shape=(len(dimensions), 10))
+
+    for i, dimension in enumerate(dimensions):
+        for j in range(10):
+            result_a, elapsed_time_a = case_a.simulate_parallel(dimension, dimension)
+            # result_b, elapsed_time_b = case_b.simulate(dimension, dimension)
+            times_a[i, j] = elapsed_time_a
+            # times_b[i, j] = elapsed_time_b
+
+    mean_a = np.mean(times_a, axis=1)
+    # mean_b = np.mean(times_b, axis=1)
+
+    # Graficar(dimensions, mean_a, mean_b)
+
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Simulación de mutual outlinks")
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Ejecutar la simulación en modo paralelo (solo caso A)",
+    )
+    args = parser.parse_args()
+    if args.parallel:
+        main_parallel()
+    else:
+        main()
