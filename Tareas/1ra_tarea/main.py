@@ -5,10 +5,7 @@ import mutual_link_simple as case_a
 import mutual_link_simple_B as case_b
 
 
-def Graficar(dimensions, times_a, times_b):
-    mean_a = np.mean(times_a, axis=1)
-    mean_b = np.mean(times_b, axis=1)
-
+def Graficar(dimensions, mean_a, mean_b):
     fig, axs = plt.subplots(3, 1, figsize=(10, 15), sharex=True)
 
     color_a = "#1f77b4"
@@ -62,7 +59,10 @@ def main():
             times_a[i, j] = elapsed_time_a
             times_b[i, j] = elapsed_time_b
 
-    Graficar(dimensions, times_a, times_b)
+    mean_a = np.mean(times_a, axis=1)
+    mean_b = np.mean(times_b, axis=1)
+
+    Graficar(dimensions, mean_a, mean_b)
 
 
 if __name__ == "__main__":
