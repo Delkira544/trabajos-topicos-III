@@ -4,15 +4,6 @@ from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 
 
-def mutual_outlinks(links: np.ndarray):
-    nr, nc = links.shape
-    tot = 0
-    for i in range(nr - 1):
-        tmp = np.dot(links[i + 1 : nr, :], links[i, :].T)
-        tot += np.sum(tmp)
-    return tot / (nr * (nr - 1) / 2)
-
-
 def sum_partial_B(i, links):
     nr = links.shape[0]
     tmp = np.dot(links[i + 1 : nr, :], links[i, :].T)
@@ -25,15 +16,6 @@ def mutual_outlinks_parallel(links, n_workers):
         results = executor.map(sum_partial_B, range(nr - 1), [links] * (nr - 1))
     tot = sum(results)
     return tot / (nr * (nr - 1) / 2)
-
-
-def simulate(nr, nc):
-    links = np.random.choice([0, 1], size=(nr * nc), replace=True).reshape(nr, nc)
-    start_time = time.time()
-    result = mutual_outlinks(links)
-    elapsed_time = time.time() - start_time
-    print(f"Resultado B: {result}, Tiempo transcurrido: {elapsed_time:.12f} segundos")
-    return result, elapsed_time
 
 
 def simulate_parallel(nr, nc, n_workers):

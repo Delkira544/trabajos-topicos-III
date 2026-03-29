@@ -82,7 +82,7 @@ def Graficar(dimensions, mean_a, mean_b):
 
 
 def main():
-    dimensions = [5, 50, 100, 1000]
+    dimensions = [5, 50, 500, 1000]
     times_a = np.zeros(shape=(len(dimensions), 10))
     times_b = np.zeros(shape=(len(dimensions), 10))
     print(times_a)
@@ -117,18 +117,15 @@ def main_parallel():
             print(f"Probando Dimensión {dim} con {n_w} workers...")
 
             for _ in range(repeticiones):
-                # Ejecución Caso A
                 _, t_a = case_a.simulate_parallel(dim, dim, n_w)
                 tiempos_iter_a.append(t_a)
 
-                # Ejecución Caso B
-                # _, t_b = case_b.simulate_parallel(dim, dim, n_w)
-                # tiempos_iter_b.append(t_b)
+                _, t_b = case_b.simulate_parallel(dim, dim, n_w)
+                tiempos_iter_b.append(t_b)
 
             promedios_a[i, j] = np.mean(tiempos_iter_a)
-            # promedios_b[i, j] = np.mean(tiempos_iter_b)
+            promedios_b[i, j] = np.mean(tiempos_iter_b)
 
-    promedios_b = promedios_a
     Graficar_Comparativa(workers, promedios_a, promedios_b, [0, 2, 3])
 
 
