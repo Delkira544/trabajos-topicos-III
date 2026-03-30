@@ -1,43 +1,9 @@
-import argparse
 
 import numpy as np
 from matplotlib import pyplot as plt
 
 import mutual_link_simple as case_a
 import mutual_link_simple_B as case_b
-
-
-def Graficar_Comparativa(workers, resultados_a, resultados_b, dimensiones_interes):
-    """
-    dimensiones_interes: lista de los índices de las dimensiones que queremos graficar
-    (ej: [0, 2, 3] para 5x5, 500x500 y 1000x1000)
-    """
-    fig, axs = plt.subplots(3, 1, figsize=(10, 15))
-    titulos = ["Matriz Base (5,5)", "Matriz Base (500,500)", "Matriz Base (1000,1000)"]
-
-    for idx, ax in enumerate(axs):
-        dim_idx = dimensiones_interes[idx]
-
-        ax.plot(
-            workers, resultados_a[dim_idx], "o-", color="#1f77b4", label="A_paralelo"
-        )
-        ax.plot(
-            workers, resultados_b[dim_idx], "s-", color="#ff7f0e", label="B_paralelo"
-        )
-
-        ax.set_title(titulos[idx], fontweight="bold")
-        ax.set_ylabel("Tiempo promedio (s)")
-        ax.set_xlabel("Número de Procesos (Workers)")
-        ax.grid(True, linestyle="--", alpha=0.7)
-        ax.legend()
-
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    fig.suptitle(
-        "Comparativa de Rendimiento: Escalabilidad de Procesos",
-        fontsize=16,
-        fontweight="bold",
-    )
-    plt.show()
 
 
 def Graficar(dimensions, mean_a, mean_b):
@@ -101,43 +67,5 @@ def main():
     Graficar(dimensions, mean_a, mean_b)
 
 
-def main_parallel():
-    dimensions = [5, 50, 500, 1000]
-    workers = [2, 4, 8, 16, 32]
-    repeticiones = 10
-
-    promedios_a = np.zeros((len(dimensions), len(workers)))
-    promedios_b = np.zeros((len(dimensions), len(workers)))
-
-    for i, dim in enumerate(dimensions):
-        for j, n_w in enumerate(workers):
-            tiempos_iter_a = []
-            tiempos_iter_b = []
-
-            print(f"Probando Dimensión {dim} con {n_w} workers...")
-
-            for _ in range(repeticiones):
-                _, t_a = case_a.simulate_parallel(dim, dim, n_w)
-                tiempos_iter_a.append(t_a)
-
-                _, t_b = case_b.simulate_parallel(dim, dim, n_w)
-                tiempos_iter_b.append(t_b)
-
-            promedios_a[i, j] = np.mean(tiempos_iter_a)
-            promedios_b[i, j] = np.mean(tiempos_iter_b)
-
-    Graficar_Comparativa(workers, promedios_a, promedios_b, [0, 2, 3])
-
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Simulación de mutual outlinks")
-    parser.add_argument(
-        "--parallel",
-        action="store_true",
-        help="Ejecutar la simulación en modo paralelo (solo caso A)",
-    )
-    args = parser.parse_args()
-    if args.parallel:
-        main_parallel()
-    else:
-        main()
+    main()
