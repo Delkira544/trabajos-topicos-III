@@ -60,9 +60,9 @@ def print_hardware_info() -> None:
         ("Python",             platform.python_version()),
     ]
     col_w = max(len(k) for k, _ in info) + 2
-    sep = "─" * (col_w + 30)
+    sep = "-" * (col_w + 30)
     print("\n" + sep)
-    print(" INFORMACIÓN DE HARDWARE")
+    print(" INFORMACION DE HARDWARE")
     print(sep)
     for key, val in info:
         print(f"  {key:<{col_w}}{val}")
@@ -98,16 +98,16 @@ def run_benchmark(
 
         stem = Path(filepath).stem
         size_mb = Path(filepath).stat().st_size / (1024 ** 2)
-        print(f"\n── Archivo: {filepath}  ({size_mb:.1f} MiB) | repeticiones={repetitions} ──")
+        print(f"\n-- Archivo: {filepath}  ({size_mb:.1f} MiB) | repeticiones={repetitions} --")
 
-        # — Medición secuencial: N repeticiones para promediar —
+        # — Medicion secuencial: N repeticiones para promediar —
         seq_out = os.path.join(DIR_ENCRYPTED, f"{stem}_seq.enc")
         tiempos_seq: list[float] = []
         for i in range(repetitions):
             t = transform_file_ctr(filepath, seq_out, passphrase)
             tiempos_seq.append(t)
         t_seq = _media(tiempos_seq)
-        print(f"  [Secuencial]  t_prom={t_seq:.6f} s  (min={min(tiempos_seq):.6f}, max={max(tiempos_seq):.6f})")
+        print(f"  [Secuencial]  t_prom={t_seq:.6f}s  min={min(tiempos_seq):.6f}s  max={max(tiempos_seq):.6f}s")
 
         # — Medición paralela por número de workers: N repeticiones —
         for n_workers in workers_list:
@@ -120,22 +120,24 @@ def run_benchmark(
                         n_workers=n_workers, chunk_size=chunk_size,
                     )
                     tiempos_par.append(t)
-                t_par   = _media(tiempos_par)
-                speedup = t_seq / t_par if t_par > 0 else float("inf")
+                t_par      = _media(tiempos_par)
+                speedup    = t_seq / t_par if t_par > 0 else float("inf")
+                eficiencia = speedup / n_workers
                 print(
-                    f"  [Paralelo]    workers={n_workers:>2d} | "
-                    f"t_prom={t_par:.6f} s | speedup={speedup:.3f}x"
+                    f"  [Paralelo]  workers={n_workers:>2d} | "
+                    f"t_prom={t_par:.6f}s | speedup={speedup:.3f}x | efic={eficiencia:.3f}"
                 )
             except Exception as exc:
                 print(f"  [ERROR] workers={n_workers}: {exc}")
-                t_par   = float("nan")
-                speedup = float("nan")
+                t_par      = float("nan")
+                speedup    = float("nan")
+                eficiencia = float("nan")
                 tiempos_par = [float("nan")] * repetitions
 
             results.append({
-                "archivo":    Path(filepath).name,
-                "tamaño_MB":  round(size_mb, 2),
-                "workers":    n_workers,
+                "archivo":      Path(filepath).name,
+                "tam_MB":       round(size_mb, 2),
+                "workers":      n_workers,
                 "repeticiones": repetitions,
                 "t_seq_prom_s": round(t_seq, 6),
                 "t_seq_min_s":  round(min(tiempos_seq), 6),
@@ -143,7 +145,8 @@ def run_benchmark(
                 "t_par_prom_s": round(t_par, 6),
                 "t_par_min_s":  round(min(tiempos_par), 6),
                 "t_par_max_s":  round(max(tiempos_par), 6),
-                "speedup":     round(speedup, 4),
+                "speedup":      round(speedup, 4),
+                "eficiencia":   round(eficiencia, 4),
             })
 
     return results
@@ -156,20 +159,20 @@ def run_benchmark(
 def plot_results(df: pd.DataFrame, output_dir: str) -> None:
     archivos = df["archivo"].unique()
 
-    # — Gráfico 1: Tiempo promedio paralelo vs workers —
+    # — Grafico 1: Tiempo promedio paralelo vs workers —
     fig, ax = plt.subplots(figsize=(9, 5))
     for archivo in archivos:
         sub = df[df["archivo"] == archivo].sort_values("workers")
         t_seq_ref = sub["t_seq_prom_s"].iloc[0]
         ax.plot(sub["workers"], sub["t_par_prom_s"], marker="o", label=archivo)
         ax.axhline(t_seq_ref, linestyle="--", alpha=0.5,
-                   label=f"Secuencial {archivo}")
+                   label=f"Sec. {archivo}")
     repeticiones = df["repeticiones"].iloc[0]
-    ax.set_xlabel("Número de workers")
+    ax.set_xlabel("Numero de workers")
     ax.set_ylabel("Tiempo promedio (s)")
     ax.set_title(
-        f"Tiempo de cifrado AES-CTR paralelo vs workers\n"
-        f"(promedio de {repeticiones} repeticiones)"
+        f"Tiempo AES-CTR paralelo vs workers\n"
+        f"(promedio de {repeticiones} repeticiones por configuracion)"
     )
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
@@ -177,19 +180,19 @@ def plot_results(df: pd.DataFrame, output_dir: str) -> None:
     path_tiempo = os.path.join(output_dir, "benchmark_tiempo.png")
     fig.savefig(path_tiempo, dpi=150)
     plt.close(fig)
-    print(f"  Gráfico guardado: {path_tiempo}")
+    print(f"  Grafico guardado: {path_tiempo}")
 
-    # — Gráfico 2: Speedup vs workers —
+    # — Grafico 2: Speedup vs workers —
     fig, ax = plt.subplots(figsize=(9, 5))
     ax.axhline(1.0, linestyle="--", color="gray", alpha=0.7, label="Speedup = 1")
     for archivo in archivos:
         sub = df[df["archivo"] == archivo].sort_values("workers")
         ax.plot(sub["workers"], sub["speedup"], marker="o", label=archivo)
-    ax.set_xlabel("Número de workers")
+    ax.set_xlabel("Numero de workers")
     ax.set_ylabel("Speedup (t_seq_prom / t_par_prom)")
     ax.set_title(
         f"Speedup AES-CTR paralelo vs workers\n"
-        f"(promedio de {repeticiones} repeticiones)"
+        f"(promedio de {repeticiones} repeticiones por configuracion)"
     )
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
@@ -197,7 +200,27 @@ def plot_results(df: pd.DataFrame, output_dir: str) -> None:
     path_speedup = os.path.join(output_dir, "benchmark_speedup.png")
     fig.savefig(path_speedup, dpi=150)
     plt.close(fig)
-    print(f"  Gráfico guardado: {path_speedup}")
+    print(f"  Grafico guardado: {path_speedup}")
+
+    # — Grafico 3: Eficiencia vs workers —
+    fig, ax = plt.subplots(figsize=(9, 5))
+    ax.axhline(1.0, linestyle="--", color="gray", alpha=0.7, label="Eficiencia ideal = 1")
+    for archivo in archivos:
+        sub = df[df["archivo"] == archivo].sort_values("workers")
+        ax.plot(sub["workers"], sub["eficiencia"], marker="s", label=archivo)
+    ax.set_xlabel("Numero de workers")
+    ax.set_ylabel("Eficiencia (speedup / workers)")
+    ax.set_title(
+        f"Eficiencia AES-CTR paralelo vs workers\n"
+        f"(promedio de {repeticiones} repeticiones por configuracion)"
+    )
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    path_efic = os.path.join(output_dir, "benchmark_eficiencia.png")
+    fig.savefig(path_efic, dpi=150)
+    plt.close(fig)
+    print(f"  Grafico guardado: {path_efic}")
 
 
 # ──────────────────────────────────────────────
@@ -263,13 +286,13 @@ def main() -> None:
 
     df = pd.DataFrame(results)
 
-    print("\n" + "─" * 70)
+    print("\n" + "-" * 70)
     print(" RESULTADOS")
-    print("─" * 70)
+    print("-" * 70)
     pd.set_option("display.max_rows", None)
     pd.set_option("display.float_format", "{:.6f}".format)
-    cols_mostrar = ["archivo", "tamaño_MB", "workers", "repeticiones",
-                    "t_seq_prom_s", "t_par_prom_s", "speedup"]
+    cols_mostrar = ["archivo", "tam_MB", "workers", "repeticiones",
+                    "t_seq_prom_s", "t_par_prom_s", "speedup", "eficiencia"]
     print(df[cols_mostrar].to_string(index=False))
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -277,7 +300,7 @@ def main() -> None:
     df.to_csv(csv_path, index=False)
     print(f"\n  CSV guardado: {csv_path}")
 
-    print("\n Generando gráficos...")
+    print("\n Generando graficos...")
     plot_results(df, args.output_dir)
 
 

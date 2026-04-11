@@ -1,36 +1,36 @@
 """
-Versión paralela de AES-CTR para la actividad de paralelización.
+Version paralela de AES-CTR para la actividad de paralelizacion.
 
-Qué hace este archivo:
+Que hace este archivo:
 - Cifra y descifra archivos binarios usando AES-CTR de forma paralela.
-- Utiliza ProcessPoolExecutor con asignación dinámica de tareas (dynamic scheduling).
+- Utiliza ProcessPoolExecutor con asignacion dinamica de tareas (dynamic scheduling).
 - Cada chunk se cifra de forma independiente calculando el offset de contador correcto,
-  garantizando un resultado byte a byte idéntico a la versión secuencial.
-- Permite configurar el número de workers y el tamaño de chunk por CLI.
+  garantizando un resultado byte a byte identico a la version secuencial.
+- Permite configurar el numero de workers y el tamano de chunk por CLI.
 
 Estrategia de paralelismo:
 - AES-CTR permite procesar bloques de forma independiente porque el keystream
   del bloque i solo depende del contador i, no del bloque i-1.
-- Se divide el archivo en chunks de tamaño fijo (múltiplo de 16 bytes).
+- Se divide el archivo en chunks de tamano fijo (multiplo de 16 bytes).
 - Cada chunk se despacha a un worker con su block_offset precalculado.
-- Los futures se mantienen en orden de submission para reensamblar el archivo
-  en el orden correcto.
+- Los resultados se recolectan con as_completed (orden de finalizacion) y luego
+  se escriben en orden de submission para preservar la integridad del archivo.
 
-Asignación dinámica:
-- Se usa executor.submit() uno a uno, no map(chunksize=...) con partición estática.
-- Los workers toman tareas del pool interno de ProcessPoolExecutor conforme quedan
-  libres, sin conocer de antemano cuántas tareas hay ni cuáles les tocarán.
+Asignacion dinamica:
+- executor.submit() despacha un chunk a la vez; los workers toman tareas del pool
+  conforme quedan libres (no hay particion estatica previa).
+- as_completed() permite recolectar resultados en el orden en que los workers
+  terminan, sin bloquear esperando que chunks anteriores esten listos.
+  La escritura final reordena con el dict chunk_results[future].
 
 Dependencia:
     pip install pycryptodome
 
-También pueden usar el requirements.txt.
-
 Ejemplos:
-    python cifrado_aes_ctr_paralelo.py enc info_clav_10.csv info_clav_10_ctr.enc clave-demo
-    python cifrado_aes_ctr_paralelo.py dec info_clav_10_ctr.enc info_clav_10_ctr_dec.csv clave-demo
-    python cifrado_aes_ctr_paralelo.py enc info_clav_10.csv info_clav_10_ctr.enc clave-demo --workers 8
-    python cifrado_aes_ctr_paralelo.py enc info_clav_10.csv info_clav_10_ctr.enc clave-demo --workers 4 --chunk-size 2097152
+    python cifrado_aes_ctr_paralelo.py enc data/info_clav_10.csv encrypted/out.enc clave-demo
+    python cifrado_aes_ctr_paralelo.py dec encrypted/out.enc decrypted/out.csv clave-demo
+    python cifrado_aes_ctr_paralelo.py enc data/info_clav_10.csv encrypted/out.enc clave-demo --workers 8
+    python cifrado_aes_ctr_paralelo.py enc data/info_clav_10.csv encrypted/out.enc clave-demo --workers 4 --chunk-size 2097152
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ import hashlib
 import os
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, Future
+from concurrent.futures import ProcessPoolExecutor, Future, as_completed
 
 from Crypto.Cipher import AES
 
@@ -92,25 +92,22 @@ def transform_file_ctr_parallel(
     """
     Cifra o descifra input_path en output_path usando AES-CTR de forma paralela.
 
-    Asignación dinámica: se hace submit() de cada chunk conforme se lee el archivo.
-    Los workers del pool toman tareas a medida que quedan disponibles.
-    Los resultados se reensamblan en orden de submission para preservar la
-    integridad del archivo.
+    Asignacion dinamica con submit():
+      Cada chunk leido se despacha inmediatamente al pool. Los workers toman
+      tareas conforme quedan libres, sin particion estatica previa.
 
-    Args:
-        input_path:  Ruta al archivo de entrada.
-        output_path: Ruta al archivo de salida.
-        passphrase:  Frase de contraseña para derivar la clave AES-256.
-        n_workers:   Número máximo de procesos worker.
-        chunk_size:  Tamaño en bytes de cada chunk (debe ser múltiplo de 16).
-        nonce:       Nonce de 8 bytes para AES-CTR.
+    Recoleccion con as_completed():
+      Los resultados se reciben en el orden en que los workers terminan
+      (no necesariamente en orden de submission). Se almacenan en un dict
+      indexado por future para luego escribir en orden correcto.
 
-    Returns:
-        Tiempo de ejecución en segundos (float).
+    Escritura ordenada:
+      Se itera futures_ordered (orden de submission) para garantizar que
+      el archivo reconstruido sea identico al original.
     """
     if chunk_size % AES.block_size != 0:
         raise ValueError(
-            f"chunk_size ({chunk_size}) debe ser múltiplo de AES.block_size ({AES.block_size})"
+            f"chunk_size ({chunk_size}) debe ser multiplo de AES.block_size ({AES.block_size})"
         )
 
     key = derive_key_from_passphrase(passphrase, key_size=32)
@@ -119,10 +116,10 @@ def transform_file_ctr_parallel(
 
     with open(input_path, "rb") as f_in, open(output_path, "wb") as f_out:
         with ProcessPoolExecutor(max_workers=n_workers) as executor:
-            futures: list[Future[bytes]] = []
+            futures_ordered: list[Future[bytes]] = []
             byte_offset: int = 0
 
-            # — Fase de submission: despachar chunks dinámicamente —
+            # Fase 1 — submission dinamica: un chunk a la vez
             while True:
                 chunk = f_in.read(chunk_size)
                 if not chunk:
@@ -131,12 +128,19 @@ def transform_file_ctr_parallel(
                 future = executor.submit(
                     encrypt_chunk_worker, chunk, key, nonce, block_offset
                 )
-                futures.append(future)
+                futures_ordered.append(future)
                 byte_offset += len(chunk)
 
-        # — Fase de escritura: reensamblar en orden de submission —
-        for future in futures:
-            f_out.write(future.result())
+            # Fase 2 — recoleccion dinamica con as_completed:
+            # los resultados se almacenan conforme los workers terminan,
+            # sin bloquear el hilo principal esperando orden de submission.
+            chunk_results: dict[Future[bytes], bytes] = {}
+            for future in as_completed(futures_ordered):
+                chunk_results[future] = future.result()
+
+        # Fase 3 — escritura en orden de submission para preservar integridad
+        for future in futures_ordered:
+            f_out.write(chunk_results[future])
 
     end_time = time.perf_counter()
     return end_time - start_time
