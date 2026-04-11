@@ -163,10 +163,14 @@ def plot_results(df: pd.DataFrame, output_dir: str) -> None:
     fig, ax = plt.subplots(figsize=(9, 5))
     for archivo in archivos:
         sub = df[df["archivo"] == archivo].sort_values("workers")
-        t_seq_ref = sub["t_seq_prom_s"].iloc[0]
-        ax.plot(sub["workers"], sub["t_par_prom_s"], marker="o", label=archivo)
-        ax.axhline(t_seq_ref, linestyle="--", alpha=0.5,
-                   label=f"Sec. {archivo}")
+        t_seq_prom = sub["t_seq_prom_s"].iloc[0]
+        t_seq_min  = sub["t_seq_min_s"].iloc[0]
+        t_seq_max  = sub["t_seq_max_s"].iloc[0]
+        color = ax._get_lines.get_next_color()
+        ax.plot(sub["workers"], sub["t_par_prom_s"], marker="o", color=color, label=archivo)
+        ax.axhline(t_seq_prom, linestyle="--", color=color, alpha=0.7,
+                   label=f"Sec. {archivo} (prom)")
+        ax.axhspan(t_seq_min, t_seq_max, color=color, alpha=0.10)
     repeticiones = df["repeticiones"].iloc[0]
     ax.set_xlabel("Numero de workers")
     ax.set_ylabel("Tiempo promedio (s)")

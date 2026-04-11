@@ -77,31 +77,38 @@ def validate_decrypt(
     bases: list[str],
     passphrase: str,
 ) -> tuple[int, int]:
-    """Descifra _seq.enc y compara el resultado con el CSV original."""
+    """Descifra cada .enc y compara el resultado con el CSV original."""
     os.makedirs(dec_dir, exist_ok=True)
     ok = fail = 0
     print()
     print(SEP)
-    print("Fase 2: Descifrado correcto (dec(_seq.enc) == CSV original)")
+    print("Fase 2: Descifrado correcto (dec(*.enc) == CSV original)")
     print(SEP)
     for base in bases:
-        seq_enc = os.path.join(enc_dir, f"{base}_seq.enc")
         original_csv = os.path.join(data_dir, f"{base}.csv")
-        dec_csv = os.path.join(dec_dir, f"{base}_dec.csv")
-
         if not os.path.exists(original_csv):
             print(f"  [{base}] CSV original no encontrado en {original_csv}, omitido.")
             continue
 
-        print(f"  [{base}] Descifrando... ", end="", flush=True)
-        transform_file_ctr_parallel(seq_enc, dec_csv, passphrase, n_workers=1)
-        equal = files_are_equal(original_csv, dec_csv)
-        estado = "OK" if equal else "DIFERENTE"
-        print(estado)
-        if equal:
-            ok += 1
-        else:
-            fail += 1
+        # recolectar todos los .enc de este base: seq + par_w*
+        enc_files = sorted(
+            f for f in os.listdir(enc_dir)
+            if re.match(rf"^{re.escape(base)}(_seq|_par_w\d+)\.enc$", f)
+        )
+        for enc_name in enc_files:
+            enc_path = os.path.join(enc_dir, enc_name)
+            dec_name = enc_name.replace(".enc", "_dec.csv")
+            dec_csv  = os.path.join(dec_dir, dec_name)
+            label    = enc_name.replace(base + "_", "").replace(".enc", "")
+            print(f"  {base}  [{label}]  Descifrando... ", end="", flush=True)
+            transform_file_ctr_parallel(enc_path, dec_csv, passphrase, n_workers=os.cpu_count() or 4)
+            equal = files_are_equal(original_csv, dec_csv)
+            estado = "OK" if equal else "DIFERENTE"
+            print(estado)
+            if equal:
+                ok += 1
+            else:
+                fail += 1
     return ok, fail
 
 

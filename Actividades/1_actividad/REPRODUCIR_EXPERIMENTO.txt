@@ -58,9 +58,13 @@ El script ejecuta dos fases por cada archivo base:
 
 Resultado esperado:
     Fase 1 (ciphertext identico): 27 OK    0 DIFERENTE
-    Fase 2 (descifrado correcto):  3 OK    0 DIFERENTE
-    TOTAL:                        30 OK    0 DIFERENTE
+    Fase 2 (descifrado correcto): 30 OK    0 DIFERENTE
+    TOTAL:                        57 OK    0 DIFERENTE
     Todos los archivos son correctos.
+
+Nota: Fase 2 descifra los 30 .enc (seq + par_wN por cada archivo base)
+      usando os.cpu_count() workers. El archivo de 1024 MB tarda varios
+      minutos por cada configuracion (10 archivos x ~1GB).
 
 Archivos descifrados se guardan en decrypted/ (ignorado por .gitignore).
 
