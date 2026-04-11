@@ -35,8 +35,10 @@ Ejemplos:
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import os
+import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, Future
 
@@ -138,3 +140,51 @@ def transform_file_ctr_parallel(
 
     end_time = time.perf_counter()
     return end_time - start_time
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Cifrado/descifrado AES-CTR paralelo con ProcessPoolExecutor"
+    )
+    parser.add_argument(
+        "operation",
+        choices=["enc", "dec"],
+        help="enc para cifrar, dec para descifrar",
+    )
+    parser.add_argument("input",      help="Archivo de entrada")
+    parser.add_argument("output",     help="Archivo de salida")
+    parser.add_argument("passphrase", help="Frase de contraseña")
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
+        help=f"Número de workers (default: {DEFAULT_WORKERS})",
+    )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=DEFAULT_CHUNK_SIZE,
+        dest="chunk_size",
+        help=(
+            f"Tamaño de chunk en bytes (default: {DEFAULT_CHUNK_SIZE}). "
+            "Debe ser múltiplo de 16."
+        ),
+    )
+    args = parser.parse_args()
+
+    elapsed = transform_file_ctr_parallel(
+        args.input,
+        args.output,
+        args.passphrase,
+        n_workers=args.workers,
+        chunk_size=args.chunk_size,
+    )
+    print(
+        f"[Paralelo] AES-CTR {args.operation} | "
+        f"workers={args.workers} | chunk_size={args.chunk_size} B | "
+        f"tiempo={elapsed:.6f} s"
+    )
+
+
+if __name__ == "__main__":
+    main()
