@@ -4,6 +4,8 @@ import os
 import random
 import sys
 
+DIR_DATA = "data"
+
 frutas_verduras = [
     "Manzana",
     "Pera",
@@ -60,8 +62,8 @@ def generar_fila():
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("Uso: python generate_files.py <tamano_en_MB> <nombre_archivo.csv>")
+    if len(sys.argv) not in (2, 3):
+        print("Uso: python generate_files.py <tamano_en_MB> [nombre_archivo.csv]")
         sys.exit(1)
 
     try:
@@ -70,8 +72,20 @@ def main():
         print("El tamaño debe ser un número en MB.")
         sys.exit(1)
 
+    # Si se pasa nombre de archivo, se usa tal cual;
+    # si no, se genera el nombre por convención dentro de data/
+    if len(sys.argv) == 3:
+        filename = sys.argv[2]
+    else:
+        size_int = int(size_mb)
+        filename = os.path.join(DIR_DATA, f"info_clav_{size_int}.csv")
+
+    # Crear la carpeta data/ si el archivo va a guardarse ahí
+    parent = os.path.dirname(filename)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
     target_size = int(size_mb * 1024 * 1024)
-    filename = sys.argv[2]
 
     with open(filename, mode="wb") as bin_file:
         text_file = io.TextIOWrapper(bin_file, encoding="utf-8", newline="")

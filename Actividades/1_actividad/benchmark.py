@@ -2,12 +2,16 @@
 Benchmark comparativo: AES-CTR secuencial vs paralelo.
 
 Mide el tiempo de cifrado para distintos números de workers y tamaños de archivo.
-Genera tabla CSV y gráficos de tiempo y speedup.
+Cada combinación se repite N veces (default: 10) y se reporta el promedio,
+lo que reduce el impacto del ruido del sistema operativo en los resultados.
+Los archivos cifrados se guardan en encrypted/ y los descifrados en decrypted/.
+Genera tabla CSV y gráficos de tiempo promedio y speedup.
 
 Uso:
     python benchmark.py
     python benchmark.py --workers 1,2,4,8 --chunk-size 2097152
     python benchmark.py --files info_clav_10.csv,info_clav_100.csv --passphrase mi-clave
+    python benchmark.py --repetitions 5
 
 Dependencias:
     pip install pycryptodome psutil pandas matplotlib
@@ -19,7 +23,6 @@ import argparse
 import os
 import platform
 import sys
-import tempfile
 from pathlib import Path
 
 import psutil
@@ -34,7 +37,12 @@ from cifrado_aes_ctr_paralelo import transform_file_ctr_parallel
 DEFAULT_WORKERS_LIST = [1, 2, 3, 4, 6, 8, 12, 16, 32]
 DEFAULT_CHUNK_SIZE   = 1024 * 1024   # 1 MiB
 DEFAULT_PASSPHRASE   = "clave-demo"
-DEFAULT_FILES        = ["info_clav_10.csv", "info_clav_100.csv", "info_clav_1024.csv"]
+DEFAULT_FILES        = ["data/info_clav_10.csv", "data/info_clav_100.csv", "data/info_clav_1024.csv"]
+DEFAULT_REPETITIONS  = 10
+
+DIR_DATA      = "data"
+DIR_ENCRYPTED = "encrypted"
+DIR_DECRYPTED = "decrypted"
 
 
 # ──────────────────────────────────────────────
@@ -65,53 +73,77 @@ def print_hardware_info() -> None:
 # Bucle de benchmark
 # ──────────────────────────────────────────────
 
+def _media(valores: list[float]) -> float:
+    """Retorna la media aritmética de una lista de floats."""
+    return sum(valores) / len(valores)
+
+
 def run_benchmark(
     files: list[str],
     workers_list: list[int],
     chunk_size: int,
     passphrase: str,
-    tmpdir: str,
+    repetitions: int,
 ) -> list[dict]:
     results: list[dict] = []
+
+    # Crear carpetas de salida para cifrados y descifrados
+    os.makedirs(DIR_ENCRYPTED, exist_ok=True)
+    os.makedirs(DIR_DECRYPTED, exist_ok=True)
 
     for filepath in files:
         if not Path(filepath).exists():
             print(f"[ADVERTENCIA] Archivo no encontrado, se omite: {filepath}")
             continue
 
+        stem = Path(filepath).stem
         size_mb = Path(filepath).stat().st_size / (1024 ** 2)
-        print(f"\n── Archivo: {filepath}  ({size_mb:.1f} MiB) ──")
+        print(f"\n── Archivo: {filepath}  ({size_mb:.1f} MiB) | repeticiones={repetitions} ──")
 
-        # — Medición secuencial (una sola vez por archivo) —
-        seq_out = os.path.join(tmpdir, "seq_out.enc")
-        t_seq = transform_file_ctr(filepath, seq_out, passphrase)
-        print(f"  [Secuencial]  tiempo={t_seq:.6f} s")
+        # — Medición secuencial: N repeticiones para promediar —
+        seq_out = os.path.join(DIR_ENCRYPTED, f"{stem}_seq.enc")
+        tiempos_seq: list[float] = []
+        for i in range(repetitions):
+            t = transform_file_ctr(filepath, seq_out, passphrase)
+            tiempos_seq.append(t)
+        t_seq = _media(tiempos_seq)
+        print(f"  [Secuencial]  t_prom={t_seq:.6f} s  (min={min(tiempos_seq):.6f}, max={max(tiempos_seq):.6f})")
 
-        # — Medición paralela por número de workers —
+        # — Medición paralela por número de workers: N repeticiones —
         for n_workers in workers_list:
-            par_out = os.path.join(tmpdir, f"par_{n_workers}_out.enc")
+            par_out = os.path.join(DIR_ENCRYPTED, f"{stem}_par_w{n_workers}.enc")
+            tiempos_par: list[float] = []
             try:
-                t_par = transform_file_ctr_parallel(
-                    filepath, par_out, passphrase,
-                    n_workers=n_workers, chunk_size=chunk_size,
-                )
+                for i in range(repetitions):
+                    t = transform_file_ctr_parallel(
+                        filepath, par_out, passphrase,
+                        n_workers=n_workers, chunk_size=chunk_size,
+                    )
+                    tiempos_par.append(t)
+                t_par   = _media(tiempos_par)
                 speedup = t_seq / t_par if t_par > 0 else float("inf")
                 print(
                     f"  [Paralelo]    workers={n_workers:>2d} | "
-                    f"tiempo={t_par:.6f} s | speedup={speedup:.3f}x"
+                    f"t_prom={t_par:.6f} s | speedup={speedup:.3f}x"
                 )
             except Exception as exc:
                 print(f"  [ERROR] workers={n_workers}: {exc}")
-                t_par  = float("nan")
+                t_par   = float("nan")
                 speedup = float("nan")
+                tiempos_par = [float("nan")] * repetitions
 
             results.append({
-                "archivo":   Path(filepath).name,
-                "tamaño_MB": round(size_mb, 2),
-                "workers":   n_workers,
-                "t_seq_s":   round(t_seq,  6),
-                "t_par_s":   round(t_par,  6),
-                "speedup":   round(speedup, 4),
+                "archivo":    Path(filepath).name,
+                "tamaño_MB":  round(size_mb, 2),
+                "workers":    n_workers,
+                "repeticiones": repetitions,
+                "t_seq_prom_s": round(t_seq, 6),
+                "t_seq_min_s":  round(min(tiempos_seq), 6),
+                "t_seq_max_s":  round(max(tiempos_seq), 6),
+                "t_par_prom_s": round(t_par, 6),
+                "t_par_min_s":  round(min(tiempos_par), 6),
+                "t_par_max_s":  round(max(tiempos_par), 6),
+                "speedup":     round(speedup, 4),
             })
 
     return results
@@ -124,17 +156,21 @@ def run_benchmark(
 def plot_results(df: pd.DataFrame, output_dir: str) -> None:
     archivos = df["archivo"].unique()
 
-    # — Gráfico 1: Tiempo paralelo vs workers —
+    # — Gráfico 1: Tiempo promedio paralelo vs workers —
     fig, ax = plt.subplots(figsize=(9, 5))
     for archivo in archivos:
         sub = df[df["archivo"] == archivo].sort_values("workers")
-        t_seq_ref = sub["t_seq_s"].iloc[0]
-        ax.plot(sub["workers"], sub["t_par_s"], marker="o", label=archivo)
+        t_seq_ref = sub["t_seq_prom_s"].iloc[0]
+        ax.plot(sub["workers"], sub["t_par_prom_s"], marker="o", label=archivo)
         ax.axhline(t_seq_ref, linestyle="--", alpha=0.5,
                    label=f"Secuencial {archivo}")
+    repeticiones = df["repeticiones"].iloc[0]
     ax.set_xlabel("Número de workers")
-    ax.set_ylabel("Tiempo (s)")
-    ax.set_title("Tiempo de cifrado AES-CTR paralelo vs número de workers")
+    ax.set_ylabel("Tiempo promedio (s)")
+    ax.set_title(
+        f"Tiempo de cifrado AES-CTR paralelo vs workers\n"
+        f"(promedio de {repeticiones} repeticiones)"
+    )
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
@@ -150,8 +186,11 @@ def plot_results(df: pd.DataFrame, output_dir: str) -> None:
         sub = df[df["archivo"] == archivo].sort_values("workers")
         ax.plot(sub["workers"], sub["speedup"], marker="o", label=archivo)
     ax.set_xlabel("Número de workers")
-    ax.set_ylabel("Speedup (t_seq / t_par)")
-    ax.set_title("Speedup AES-CTR paralelo vs número de workers")
+    ax.set_ylabel("Speedup (t_seq_prom / t_par_prom)")
+    ax.set_title(
+        f"Speedup AES-CTR paralelo vs workers\n"
+        f"(promedio de {repeticiones} repeticiones)"
+    )
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
@@ -197,6 +236,12 @@ def main() -> None:
         dest="output_dir",
         help="Directorio de salida para CSV y gráficos (default: .)",
     )
+    parser.add_argument(
+        "--repetitions",
+        type=int,
+        default=DEFAULT_REPETITIONS,
+        help=f"Número de repeticiones por medición para promediar (default: {DEFAULT_REPETITIONS})",
+    )
     args = parser.parse_args()
 
     workers_list = [int(w.strip()) for w in args.workers.split(",")]
@@ -204,14 +249,13 @@ def main() -> None:
 
     print_hardware_info()
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        results = run_benchmark(
-            files=files,
-            workers_list=workers_list,
-            chunk_size=args.chunk_size,
-            passphrase=args.passphrase,
-            tmpdir=tmpdir,
-        )
+    results = run_benchmark(
+        files=files,
+        workers_list=workers_list,
+        chunk_size=args.chunk_size,
+        passphrase=args.passphrase,
+        repetitions=args.repetitions,
+    )
 
     if not results:
         print("\nNo se obtuvieron resultados. Verifica que los archivos existan.")
@@ -224,7 +268,9 @@ def main() -> None:
     print("─" * 70)
     pd.set_option("display.max_rows", None)
     pd.set_option("display.float_format", "{:.6f}".format)
-    print(df.to_string(index=False))
+    cols_mostrar = ["archivo", "tamaño_MB", "workers", "repeticiones",
+                    "t_seq_prom_s", "t_par_prom_s", "speedup"]
+    print(df[cols_mostrar].to_string(index=False))
 
     os.makedirs(args.output_dir, exist_ok=True)
     csv_path = os.path.join(args.output_dir, "benchmark_results.csv")

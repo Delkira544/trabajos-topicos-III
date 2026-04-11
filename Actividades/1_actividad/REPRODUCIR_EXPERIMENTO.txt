@@ -1,0 +1,132 @@
+================================================================
+PASOS PARA REPRODUCIR EL EXPERIMENTO — ACTIVIDAD 1
+AES-CTR Secuencial vs Paralelo
+================================================================
+Requisito previo: tener el repositorio clonado y el venv activo.
+La carpeta de trabajo es: Actividades/1_actividad/
+================================================================
+
+
+----------------------------------------------------------------
+PASO 1 — Generar archivos de prueba
+----------------------------------------------------------------
+Los archivos se guardan automáticamente en data/
+
+    python generate_files.py 10
+    python generate_files.py 100
+    python generate_files.py 1024
+
+Esto crea: data/info_clav_10.csv, data/info_clav_100.csv, data/info_clav_1024.csv
+
+Nota: el de 1024 MB tarda varios minutos. Si solo quieres probar
+rápido, usa solo el de 10 MB.
+
+
+----------------------------------------------------------------
+PASO 2 — Verificar correctitud (cifrado paralelo == secuencial)
+----------------------------------------------------------------
+Cifrar con versión secuencial (salida en encrypted/):
+    mkdir encrypted
+    python cifrado_aes_ctr_secuencial.py enc data/info_clav_10.csv encrypted/test_seq.enc clave-demo
+
+Cifrar con versión paralela (4 workers, salida en encrypted/):
+    python cifrado_aes_ctr_paralelo.py enc data/info_clav_10.csv encrypted/test_par.enc clave-demo --workers 4
+
+Comparar ciphertext — deben ser iguales:
+    python validador.py encrypted/test_seq.enc encrypted/test_par.enc
+    => Esperado: "Los archivos son iguales."
+
+Descifrar en decrypted/ y validar contra el original:
+    mkdir decrypted
+    python cifrado_aes_ctr_paralelo.py dec encrypted/test_par.enc decrypted/test_dec.csv clave-demo --workers 4
+    python validador.py data/info_clav_10.csv decrypted/test_dec.csv
+    => Esperado: "Los archivos son iguales."
+
+Nota: el benchmark crea encrypted/ y decrypted/ automáticamente.
+      Para la validación manual, créalas antes con mkdir.
+
+
+----------------------------------------------------------------
+PASO 3 — Ejecutar el benchmark completo
+----------------------------------------------------------------
+Cada combinación archivo × workers se repite 10 veces por defecto
+para obtener un promedio confiable (min/max también se registran).
+Los archivos cifrados quedan en encrypted/.
+
+Con los tres archivos generados (10, 100 y 1024 MB):
+    python benchmark.py
+
+Con número de repeticiones personalizado:
+    python benchmark.py --repetitions 10
+
+Con parámetros personalizados (ejemplo):
+    python benchmark.py --workers 1,2,4,8,16 --chunk-size 2097152 --repetitions 5
+
+Solo con archivos pequeños para prueba rápida:
+    python benchmark.py --files info_clav_10.csv,info_clav_100.csv --repetitions 3
+
+
+----------------------------------------------------------------
+PASO 4 — Revisar resultados
+----------------------------------------------------------------
+El benchmark genera los siguientes archivos:
+
+    benchmark_results.csv   — tabla con columnas:
+                              archivo, tamaño_MB, workers, repeticiones,
+                              t_seq_prom_s, t_seq_min_s, t_seq_max_s,
+                              t_par_prom_s, t_par_min_s, t_par_max_s,
+                              speedup
+
+    benchmark_tiempo.png    — gráfico: tiempo promedio vs número de workers
+    benchmark_speedup.png   — gráfico: speedup vs número de workers
+
+    encrypted/              — archivos .enc generados durante el benchmark
+    decrypted/              — (vacío tras el benchmark; se usa en validación manual)
+
+También imprime en consola la tabla de hardware y los tiempos
+de cada combinación archivo × workers (prom, min, max).
+
+
+----------------------------------------------------------------
+PASO 5 — Limpiar archivos temporales (opcional)
+----------------------------------------------------------------
+Estos archivos NO se suben al repositorio (están en .gitignore).
+Para eliminarlos manualmente:
+
+Windows:
+    rmdir /s /q data encrypted decrypted
+    del benchmark_results.csv benchmark_tiempo.png benchmark_speedup.png
+
+Linux/macOS:
+    rm -rf data/ encrypted/ decrypted/
+    rm benchmark_results.csv benchmark_tiempo.png benchmark_speedup.png
+
+
+----------------------------------------------------------------
+PARÁMETROS CONFIGURABLES
+----------------------------------------------------------------
+Parámetro        CLI                    Default
+─────────────────────────────────────────────────────────────
+Workers          --workers N            cpu_count()
+Chunk size       --chunk-size BYTES     1048576 (1 MiB)
+Passphrase       --passphrase STR       clave-demo
+Archivos         --files a.csv,b.csv    los tres de referencia
+Repeticiones     --repetitions N        10
+Directorio out   --output-dir DIR       . (carpeta actual)
+
+Restricciones:
+  - --chunk-size debe ser múltiplo de 16.
+  - --repetitions debe ser >= 1 (se recomienda >= 10 para el informe).
+
+
+================================================================
+ARCHIVOS DEL PROYECTO
+================================================================
+cifrado_aes_ctr_secuencial.py   Línea base secuencial (no modificar)
+cifrado_aes_ctr_paralelo.py     Versión paralela con ProcessPoolExecutor
+benchmark.py                    Script de medición y gráficos
+validador.py                    Compara dos archivos byte a byte
+generate_files.py               Genera archivos CSV de prueba
+requirements.txt                Dependencias Python
+REPRODUCIR_EXPERIMENTO.txt      Este archivo
+================================================================

@@ -214,3 +214,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Actividades/1_actividad — archivos generados por el experimento
+Actividades/1_actividad/data/
+Actividades/1_actividad/*.enc
+Actividades/1_actividad/encrypted/
+Actividades/1_actividad/decrypted/
+Actividades/1_actividad/benchmark_results.csv
+Actividades/1_actividad/benchmark_tiempo.png
+Actividades/1_actividad/benchmark_speedup.png
