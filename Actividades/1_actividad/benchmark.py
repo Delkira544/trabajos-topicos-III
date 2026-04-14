@@ -188,7 +188,6 @@ def plot_results(df: pd.DataFrame, output_dir: str) -> None:
 
     # — Grafico 2: Speedup vs workers —
     fig, ax = plt.subplots(figsize=(9, 5))
-    ax.axhline(1.0, linestyle="--", color="gray", alpha=0.7, label="Speedup = 1")
     for archivo in archivos:
         sub = df[df["archivo"] == archivo].sort_values("workers")
         ax.plot(sub["workers"], sub["speedup"], marker="o", label=archivo)
@@ -208,7 +207,6 @@ def plot_results(df: pd.DataFrame, output_dir: str) -> None:
 
     # — Grafico 3: Eficiencia vs workers —
     fig, ax = plt.subplots(figsize=(9, 5))
-    ax.axhline(1.0, linestyle="--", color="gray", alpha=0.7, label="Eficiencia ideal = 1")
     for archivo in archivos:
         sub = df[df["archivo"] == archivo].sort_values("workers")
         ax.plot(sub["workers"], sub["eficiencia"], marker="s", label=archivo)

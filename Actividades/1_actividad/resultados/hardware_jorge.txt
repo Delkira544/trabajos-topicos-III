@@ -2,8 +2,8 @@
  INFORMACION DE HARDWARE
 -------------------------------------------------
   Sistema operativo  Windows 10
-  Procesador         Intel64 i5 12400f Family 6 Model 151 Stepping 5, GenuineIntel
+  Procesador         Intel64 i5 12400f (2.5Ghz) Family 6 Model 151 Stepping 5, GenuineIntel 
   N·cleos fisicos    6
   N·cleos logicos    12
-  RAM total (GiB)    31.84 DDR4
+  RAM total (GiB)    31.84 DDR4 5600Mhz
   Python             3.13.12
