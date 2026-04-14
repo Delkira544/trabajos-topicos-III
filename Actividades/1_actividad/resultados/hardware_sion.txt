@@ -1,0 +1,9 @@
+-------------------------------------------------
+ INFORMACION DE HARDWARE
+-------------------------------------------------
+  Sistema operativo  Windows 11
+  Procesador        Procesador: Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz ----------- Intel64 Family 6 Model 165 Stepping 2, GenuineIntel
+  Núcleos físicos    4
+  Núcleos lógicos    8
+  RAM total (GiB)    7.87 GB 2933 MHz
+  Python             3.14.0
