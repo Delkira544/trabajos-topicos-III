@@ -1,0 +1,9 @@
+-------------------------------------------------
+ INFORMACION DE HARDWARE
+-------------------------------------------------
+  Sistema operativo  Archlinux Rolling Release
+  Procesador         AMD Ryzen 5 5500 (3.6Ghz) (4.2 Ghz Turbo)
+  N·cleos fisicos    6
+  N·cleos logicos    12
+  RAM total (GiB)    31.2 DDR4 3200MHZ
+  Python             3.14.3
