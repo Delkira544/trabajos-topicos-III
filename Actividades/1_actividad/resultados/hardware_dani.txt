@@ -1,0 +1,9 @@
+-------------------------------------------------
+ INFORMACION DE HARDWARE
+-------------------------------------------------
+    Sistema operativo macOS (Apple Silicon)
+    Procesador Apple M1 (ARM64)
+    Núcleos físicos 8
+    Núcleos lógicos 8
+    RAM total (GiB) 8.00 GB 4266 MHz
+    Python 3.11.0
