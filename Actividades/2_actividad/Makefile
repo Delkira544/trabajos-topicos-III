@@ -17,7 +17,7 @@ endif
 # 2. Variables de configuración
 CXX      = g++
 CXXFLAGS = -Wall -Wextra -std=c++17
-TARGET   = programa$(EXT)
+TARGET   = mochila_ga$(EXT)
 
 # Carpetas
 SRC_DIR   = src
@@ -44,6 +44,12 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 # Regla para ejecutar
 run: all
 	./$(TARGET)
+
+run small:
+	./$(TARGET) --instance data/small \
+				--variant islands \
+				--threads 8 \
+				--seed 123\
 
 # Limpieza profunda
 clean:
