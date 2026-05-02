@@ -45,4 +45,31 @@ struct Instance {
     DependencyMap dependencies;
     KnapsackConfig knapsack;
 };
+
+struct Individual {
+    std::vector<bool> chromosome; // Representación binaria de la solución
+    float fitness; // Valor de la función objetivo
+    bool is_valid; // Indica si la solución cumple con las restricciones
+
+    Individual(): fitness(0.0), is_valid(true) {}
+};
+
+// Clase para el algoritmo genético
+class GeneticAlgorithm {
+private:
+    Instance instance;
+    int population_size;
+    int generations;
+    float mutation_rate;
+
+    std::vector<Individual> population;
+
+public:
+    GeneticAlgorithm(const Instance& instance, int population_size, int generations, float mutation_rate);
+    void Initialize_Population();
+    void View_Population();
+
+};
+
+
 #endif

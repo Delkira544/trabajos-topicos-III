@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include "genetic_algorithm.hpp"
 #include "instance_loader.hpp"
 
 struct Config {
@@ -33,11 +34,11 @@ int main(int argc, char* argv[]) {
     std::cout << "Incompatibilidades: " << instance.incompatibilities.size() << "\n";
     std::cout << "Dependencias: " << instance.dependencies.size() << "\n";
 
-    for (const auto& item : instance.items) {
-        std::cout << "  Item[" << item.id << "] val=" << item.value
-                  << " peso=" << item.weight << " vol=" << item.volume
-                  << " cat=" << item.category << "\n";
-    }
+    GeneticAlgorithm ga(instance, 100, 50, 0.01);
+    ga.Initialize_Population();
+    ga.View_Population();
+
+
 
     return 0;
 }
