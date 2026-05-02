@@ -1,4 +1,6 @@
-category,min,max
-Electronics,1,2
-Food,0,3
-Clothing,0,1
+categoria,minimo,maximo
+cat_3,1,9
+cat_2,1,12
+cat_1,0,6
+cat_0,1,14
+cat_4,1,7
