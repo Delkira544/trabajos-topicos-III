@@ -1,9 +1,10 @@
 #ifndef GENETIC_ALGORITHM_HPP
 #define GENETIC_ALGORITHM_HPP
 
-#include <vector>
+#include <random>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 struct Item {
     int id;
@@ -20,7 +21,6 @@ struct CategoryRule {
 
 // Mapa: "Electrónica" -> {min: 1, max: 3}
 using CategoryMap = std::unordered_map<std::string, CategoryRule>;
-
 
 // Incompatibilidades: Si tengo A, no puedo tener B
 // Se puede usar un vector de pares o una matriz de adyacencia
@@ -48,28 +48,33 @@ struct Instance {
 
 struct Individual {
     std::vector<bool> chromosome; // Representación binaria de la solución
-    float fitness; // Valor de la función objetivo
+    float fitness;                // Valor de la función objetivo
     bool is_valid; // Indica si la solución cumple con las restricciones
 
-    Individual(): fitness(0.0), is_valid(true) {}
+    Individual() : fitness(0.0), is_valid(true) {
+    }
 };
 
 // Clase para el algoritmo genético
 class GeneticAlgorithm {
-private:
+  private:
     Instance instance;
     int population_size;
     int generations;
     float mutation_rate;
+    std::mt19937 rng; // Generador de números aleatorios
 
     std::vector<Individual> population;
 
-public:
-    GeneticAlgorithm(const Instance& instance, int population_size, int generations, float mutation_rate);
     void Initialize_Population();
+
+  public:
+    GeneticAlgorithm(const Instance &instance, int population_size,
+                     int generations, float mutation_rate, int seed);
+
     void View_Population();
-
+    void Run();
+    Individual GetBestSolution() const;
 };
-
 
 #endif

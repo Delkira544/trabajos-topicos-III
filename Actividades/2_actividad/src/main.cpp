@@ -10,16 +10,20 @@ struct Config {
     int seed = 0;
 };
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     Config conf;
 
     for (int i = 1; i < argc; ++i) {
         std::string flag = argv[i];
 
-        if (flag == "--instance") conf.instance = argv[++i];
-        else if (flag == "--variant") conf.variant = argv[++i];
-        else if (flag == "--threads") conf.threads = std::stoi(argv[++i]);
-        else if (flag == "--seed") conf.seed = std::stoi(argv[++i]);
+        if (flag == "--instance")
+            conf.instance = argv[++i];
+        else if (flag == "--variant")
+            conf.variant = argv[++i];
+        else if (flag == "--threads")
+            conf.threads = std::stoi(argv[++i]);
+        else if (flag == "--seed")
+            conf.seed = std::stoi(argv[++i]);
     }
 
     std::string data_dir = conf.instance;
@@ -30,15 +34,19 @@ int main(int argc, char* argv[]) {
     std::cout << "Hilos: " << conf.threads << "\n";
     std::cout << "Semilla: " << conf.seed << "\n";
     std::cout << "Items cargados: " << instance.items.size() << "\n";
-    std::cout << "Reglas de categoria: " << instance.category_rules.size() << "\n";
-    std::cout << "Incompatibilidades: " << instance.incompatibilities.size() << "\n";
+    std::cout << "Reglas de categoria: " << instance.category_rules.size()
+              << "\n";
+    std::cout << "Incompatibilidades: " << instance.incompatibilities.size()
+              << "\n";
     std::cout << "Dependencias: " << instance.dependencies.size() << "\n";
 
-    GeneticAlgorithm ga(instance, 100, 50, 0.01);
-    ga.Initialize_Population();
+    GeneticAlgorithm ga(instance, 100, 50, 0.01f, conf.seed);
+    ga.Run();
     ga.View_Population();
 
-
+    Individual mejor = ga.GetBestSolution();
+    std::cout << "¡Evolución terminada!" << std::endl;
+    std::cout << "Mejor Fitness: " << mejor.fitness << std::endl;
 
     return 0;
 }
