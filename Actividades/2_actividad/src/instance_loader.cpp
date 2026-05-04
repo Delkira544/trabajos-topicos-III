@@ -119,6 +119,70 @@ DependencyMap InstanceLoader::loadDependencies(const std::string &path) {
     return deps;
 }
 
+KnapsackConfig InstanceLoader::loadKnapsackConfig(const std::string &path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        return {1000.0f, 500.0f};
+    }
+
+    std::string line;
+    std::getline(file, line); // skip header
+    std::getline(file, line);
+
+    if (line.empty()) {
+        return {1000.0f, 500.0f};
+    }
+
+    std::stringstream ss(line);
+    std::string token;
+    KnapsackConfig config;
+
+    std::getline(ss, token, ',');
+    config.max_weight = std::stof(trim(token));
+    std::getline(ss, token, ',');
+    config.max_volume = std::stof(trim(token));
+
+    return config;
+}
+
+PenaltyConfig InstanceLoader::loadPenaltyConfig(const std::string &path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        return {2.0f, 2.0f, 0.15f, 0.15f, 0.1f};
+    }
+
+    PenaltyConfig config{2.0f, 2.0f, 0.15f, 0.15f, 0.1f};
+
+    std::string line;
+    std::getline(file, line); // skip header
+
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        std::stringstream ss(line);
+        std::string token;
+        std::string key;
+        float value;
+
+        std::getline(ss, key, ',');
+        std::getline(ss, token, ',');
+        value = std::stof(trim(token));
+
+        key = trim(key);
+        if (key == "peso_exceso")
+            config.weight_penalty = value;
+        else if (key == "volumen_exceso")
+            config.volume_penalty = value;
+        else if (key == "incompatibilidad")
+            config.incompatibility_penalty = value;
+        else if (key == "dependencia")
+            config.dependency_penalty = value;
+        else if (key == "categoria")
+            config.category_penalty = value;
+    }
+
+    return config;
+}
+
 Instance InstanceLoader::load(const std::string &directory) {
     Instance instance;
     instance.items = loadItems(directory + "/items.csv");
@@ -127,9 +191,8 @@ Instance InstanceLoader::load(const std::string &directory) {
     instance.incompatibilities =
         loadIncompatibilities(directory + "/incompatibilities.csv");
     instance.dependencies = loadDependencies(directory + "/dependencies.csv");
-
-    instance.knapsack.max_weight = 1000.0f;
-    instance.knapsack.max_volume = 500.0f;
+    instance.knapsack = loadKnapsackConfig(directory + "/knapsack_config.csv");
+    instance.penalties = loadPenaltyConfig(directory + "/penalty_config.csv");
 
     return instance;
 }

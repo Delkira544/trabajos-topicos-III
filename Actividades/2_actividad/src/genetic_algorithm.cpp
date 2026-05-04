@@ -2,6 +2,7 @@
 #include "fitness.hpp"
 #include <algorithm>
 #include <iostream>
+#include <numeric>
 #include <random>
 
 #include "crossover.hpp"
@@ -20,39 +21,32 @@ void GeneticAlgorithm::Initialize_Population() {
     population.clear();
     population.reserve(population_size);
 
-    std::bernoulli_distribution d(
-        0.5); // Probabilidad de 0.5 para incluir o no cada ítem
+    std::bernoulli_distribution d(0.5);
 
     std::vector<int> indices(instance.items.size());
     std::iota(indices.begin(), indices.end(), 0);
 
     for (int i = 0; i < population_size; ++i) {
         Individual individual;
-        individual.chromosome.assign(
-            instance.items.size(),
-            false); // Inicializa el cromosoma con todos los ítems no incluidos
+        individual.chromosome.assign(instance.items.size(), false);
 
         float total_weight = 0.0;
         float total_volume = 0.0;
 
-        std::shuffle(
-            indices.begin(), indices.end(),
-            rng); // Mezcla los índices para generar soluciones variadas
+        std::shuffle(indices.begin(), indices.end(), rng);
 
         for (int idx : indices) {
             const Item &item = instance.items[idx];
 
             if (total_weight + item.weight <= instance.knapsack.max_weight &&
                 total_volume + item.volume <= instance.knapsack.max_volume) {
-                individual.chromosome[idx] =
-                    d(rng); // Decide aleatoriamente si incluir el ítem
+                individual.chromosome[idx] = d(rng);
                 if (individual.chromosome[idx]) {
                     total_weight += item.weight;
                     total_volume += item.volume;
                 }
             } else {
-                break; // Si se excede el peso o volumen, no se incluyen más
-                       // ítems
+                break;
             }
         }
         population.push_back(individual);
@@ -60,28 +54,64 @@ void GeneticAlgorithm::Initialize_Population() {
 }
 
 void GeneticAlgorithm::View_Population() {
-    for (const auto &individual : population) {
-        std::cout << "Individual: ";
-        for (bool gene : individual.chromosome) {
-            std::cout << gene;
-        }
-        std::cout << "\n";
-        std::cout << "\t| Fitness: " << individual.fitness
-                  << " | Valid: " << (individual.is_valid ? "Yes" : "No");
-        std::cout << "\n";
+    std::cout << "\n=== Población (" << population.size()
+              << " individuos) ===\n";
+
+    float best = population[0].fitness;
+    float worst = population[0].fitness;
+    float sum = 0;
+    int valid_count = 0;
+
+    for (const auto &ind : population) {
+        best = std::max(best, ind.fitness);
+        worst = std::min(worst, ind.fitness);
+        sum += ind.fitness;
+        if (ind.is_valid) valid_count++;
     }
+
+    std::cout << "Mejor: " << best << "\n";
+    std::cout << "Peor: " << worst << "\n";
+    std::cout << "Promedio: " << (sum / population.size()) << "\n";
+    std::cout << "Válidos: " << valid_count << "/" << population.size() << "\n";
+
+    Individual mejor = GetBestSolution();
+    std::cout << "\nMejor individuo:\n";
+    std::cout << "  Fitness: " << mejor.fitness << "\n";
+    std::cout << "  Válido: " << (mejor.is_valid ? "Sí" : "No") << "\n";
+    int selected =
+        std::count(mejor.chromosome.begin(), mejor.chromosome.end(), true);
+    std::cout << "  Ítems seleccionados: " << selected << "\n";
+}
+
+Individual
+GeneticAlgorithm::FindBest(const std::vector<Individual> &pop) const {
+    Individual best = pop[0];
+    for (size_t i = 1; i < pop.size(); ++i) {
+        if (pop[i].fitness > best.fitness) {
+            best = pop[i];
+        }
+    }
+    return best;
 }
 
 void GeneticAlgorithm::Run() {
-    // Bucle generacional
     Initialize_Population();
-    for (int gen = 0; gen < generations; ++gen) {
 
+    // Evaluar población inicial
+    for (auto &ind : population) {
+        Fitness::Evaluate(ind, instance);
+    }
+
+    Individual best_ever = FindBest(population);
+
+    for (int gen = 0; gen < generations; ++gen) {
         std::vector<Individual> new_population;
         new_population.reserve(population_size);
 
-        while (new_population.size() < population_size) {
+        // Elitismo: preservar el mejor individuo
+        new_population.push_back(best_ever);
 
+        while (static_cast<int>(new_population.size()) < population_size) {
             int tournament_size = 3;
             Individual p1 =
                 Selection::Tournament(population, tournament_size, rng);
@@ -99,12 +129,18 @@ void GeneticAlgorithm::Run() {
             Fitness::Evaluate(c2, instance);
 
             new_population.push_back(c1);
-            if (new_population.size() < population_size) {
+            if (static_cast<int>(new_population.size()) < population_size) {
                 new_population.push_back(c2);
             }
         }
 
-        population = new_population;
+        population = std::move(new_population);
+
+        // Actualizar mejor histórico
+        Individual current_best = FindBest(population);
+        if (current_best.fitness > best_ever.fitness) {
+            best_ever = current_best;
+        }
     }
 }
 

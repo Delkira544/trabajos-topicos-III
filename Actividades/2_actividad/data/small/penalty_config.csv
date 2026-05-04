@@ -1,0 +1,6 @@
+restriccion,coeficiente
+peso_exceso,2.0
+volumen_exceso,2.0
+incompatibilidad,0.15
+dependencia,0.15
+categoria,0.1

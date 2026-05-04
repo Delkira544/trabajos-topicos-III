@@ -69,4 +69,10 @@ Testing/
 
 mochila_ga
 
-data/
+# Python cache
+__pycache__/
+*.pyc
+
+# Large data instances (keep small for testing)
+data/medium/
+data/large/
