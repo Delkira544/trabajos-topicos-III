@@ -16,7 +16,7 @@ endif
 
 # 2. Variables de configuración
 CXX      = g++
-CXXFLAGS = -Wall -Wextra -std=c++17
+CXXFLAGS = -Wall -Wextra -std=c++17 -fopenmp
 TARGET   = mochila_ga$(EXT)
 
 # Carpetas

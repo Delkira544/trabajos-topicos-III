@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <omp.h>
 
 struct Item {
     int id;
@@ -65,12 +66,14 @@ class GeneticAlgorithm {
     int population_size;
     int generations;
     float mutation_rate;
+    int seed;
     std::mt19937 rng;
 
     std::vector<Individual> population;
 
     void Initialize_Population();
     Individual FindBest(const std::vector<Individual> &pop) const;
+    std::mt19937 get_rng_for_thread(int thread_id) const;
 
   public:
     GeneticAlgorithm(const Instance &instance, int population_size,
@@ -78,6 +81,7 @@ class GeneticAlgorithm {
 
     void View_Population();
     void Run();
+    void RunParallel(int num_threads = 0);
     Individual GetBestSolution() const;
 };
 

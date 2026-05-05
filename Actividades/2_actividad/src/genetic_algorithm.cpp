@@ -13,8 +13,79 @@ GeneticAlgorithm::GeneticAlgorithm(const Instance &instance,
                                    int population_size, int generations,
                                    float mutation_rate, int seed)
     : instance(instance), population_size(population_size),
-      generations(generations), mutation_rate(mutation_rate) {
+      generations(generations), mutation_rate(mutation_rate), seed(seed) {
     rng.seed(seed);
+}
+
+std::mt19937 GeneticAlgorithm::get_rng_for_thread(int thread_id) const {
+    std::mt19937 thread_rng;
+    thread_rng.seed(seed + thread_id * 1000);
+    return thread_rng;
+}
+
+void GeneticAlgorithm::RunParallel(int num_threads) {
+    if (num_threads > 0) {
+        omp_set_num_threads(num_threads);
+    }
+
+    Initialize_Population();
+
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < population_size; ++i) {
+        Fitness::Evaluate(population[i], instance);
+    }
+
+    Individual best_ever = FindBest(population);
+
+    for (int gen = 0; gen < generations; ++gen) {
+        std::vector<Individual> new_population;
+        new_population.reserve(population_size);
+        new_population.push_back(best_ever);
+
+        int children_needed = population_size - 1;
+        std::vector<Individual> children(children_needed);
+
+#pragma omp parallel
+        {
+            std::mt19937 thread_rng = get_rng_for_thread(omp_get_thread_num());
+
+#pragma omp for schedule(static)
+            for (int i = 0; i < children_needed; i += 2) {
+                int tournament_size = 3;
+                Individual p1 = Selection::Tournament(
+                    population, tournament_size, thread_rng);
+                Individual p2 = Selection::Tournament(
+                    population, tournament_size, thread_rng);
+
+                Individual c1, c2;
+                Crossover::SinglePoint(p1, p2, c1, c2, thread_rng);
+
+                Mutation::BitFlip(c1, mutation_rate, thread_rng);
+                Mutation::BitFlip(c2, mutation_rate, thread_rng);
+
+                children[i] = c1;
+                if (i + 1 < children_needed) {
+                    children[i + 1] = c2;
+                }
+            }
+        }
+
+        for (int i = 0; i < children_needed; ++i) {
+            new_population.push_back(children[i]);
+        }
+
+#pragma omp parallel for schedule(static)
+        for (int i = 1; i < population_size; ++i) {
+            Fitness::Evaluate(new_population[i], instance);
+        }
+
+        population = std::move(new_population);
+
+        Individual current_best = FindBest(population);
+        if (current_best.fitness > best_ever.fitness) {
+            best_ever = current_best;
+        }
+    }
 }
 
 void GeneticAlgorithm::Initialize_Population() {

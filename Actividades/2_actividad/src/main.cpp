@@ -105,7 +105,12 @@ int main(int argc, char *argv[]) {
 
     GeneticAlgorithm ga(instance, conf.population_size, conf.generations,
                         conf.mutation_rate, conf.seed);
-    ga.Run();
+
+    if (conf.threads > 1) {
+        ga.RunParallel(conf.threads);
+    } else {
+        ga.Run();
+    }
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
