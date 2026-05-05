@@ -1,6 +1,7 @@
 #include "genetic_algorithm.hpp"
 #include "fitness.hpp"
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <numeric>
 #include <random>
@@ -13,8 +14,62 @@ GeneticAlgorithm::GeneticAlgorithm(const Instance &instance,
                                    int population_size, int generations,
                                    float mutation_rate, int seed)
     : instance(instance), population_size(population_size),
-      generations(generations), mutation_rate(mutation_rate), seed(seed) {
+      generations(generations), mutation_rate(mutation_rate), seed(seed),
+      previous_best_fitness_(0.0f), convergence_threshold_(0.001f) {
     rng.seed(seed);
+}
+
+void GeneticAlgorithm::SetConvergenceThreshold(float threshold) {
+    convergence_threshold_ = threshold;
+}
+
+const std::vector<GenerationStats> &GeneticAlgorithm::GetStats() const {
+    return stats_;
+}
+
+void GeneticAlgorithm::RecordStats(int gen) {
+    GenerationStats gen_stats;
+    gen_stats.generation = gen;
+
+    Individual current_best = FindBest(population);
+    gen_stats.best_fitness = current_best.fitness;
+    gen_stats.best_is_valid = current_best.is_valid;
+
+    float sum = 0;
+    float worst = population[0].fitness;
+    int valid = 0;
+
+    for (const auto &ind : population) {
+        sum += ind.fitness;
+        worst = std::min(worst, ind.fitness);
+        if (ind.is_valid) valid++;
+    }
+
+    gen_stats.avg_fitness = sum / population.size();
+    gen_stats.worst_fitness = worst;
+    gen_stats.valid_count = valid;
+
+    if (gen > 0) {
+        gen_stats.convergence_delta =
+            std::abs(gen_stats.best_fitness - previous_best_fitness_);
+    } else {
+        gen_stats.convergence_delta = gen_stats.best_fitness;
+    }
+    previous_best_fitness_ = gen_stats.best_fitness;
+
+    stats_.push_back(gen_stats);
+}
+
+bool GeneticAlgorithm::HasConverged() const {
+    if (stats_.size() < 10) return false;
+
+    size_t window = 10;
+    float delta_sum = 0;
+    for (size_t i = stats_.size() - window; i < stats_.size(); ++i) {
+        delta_sum += stats_[i].convergence_delta;
+    }
+    float avg_delta = delta_sum / window;
+    return avg_delta < convergence_threshold_;
 }
 
 std::mt19937 GeneticAlgorithm::get_rng_for_thread(int thread_id) const {
@@ -92,6 +147,13 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
         Individual current_best = FindBest(population);
         if (current_best.fitness > best_ever.fitness) {
             best_ever = current_best;
+        }
+
+        RecordStats(gen);
+
+        if (HasConverged()) {
+            std::cout << "Convergencia detectada en generacion " << gen << "\n";
+            break;
         }
     }
 }
@@ -219,6 +281,13 @@ void GeneticAlgorithm::Run() {
         Individual current_best = FindBest(population);
         if (current_best.fitness > best_ever.fitness) {
             best_ever = current_best;
+        }
+
+        RecordStats(gen);
+
+        if (HasConverged()) {
+            std::cout << "Convergencia detectada en generacion " << gen << "\n";
+            break;
         }
     }
 }

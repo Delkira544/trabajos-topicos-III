@@ -60,6 +60,16 @@ struct Individual {
     }
 };
 
+struct GenerationStats {
+    int generation;
+    float best_fitness;
+    float avg_fitness;
+    float worst_fitness;
+    int valid_count;
+    bool best_is_valid;
+    float convergence_delta;
+};
+
 class GeneticAlgorithm {
   private:
     Instance instance;
@@ -70,10 +80,15 @@ class GeneticAlgorithm {
     std::mt19937 rng;
 
     std::vector<Individual> population;
+    std::vector<GenerationStats> stats_;
+    float previous_best_fitness_;
+    float convergence_threshold_;
 
     void Initialize_Population();
     Individual FindBest(const std::vector<Individual> &pop) const;
     std::mt19937 get_rng_for_thread(int thread_id) const;
+    void RecordStats(int gen);
+    bool HasConverged() const;
 
   public:
     GeneticAlgorithm(const Instance &instance, int population_size,
@@ -83,6 +98,8 @@ class GeneticAlgorithm {
     void Run();
     void RunParallel(int num_threads = 0);
     Individual GetBestSolution() const;
+    const std::vector<GenerationStats> &GetStats() const;
+    void SetConvergenceThreshold(float threshold);
 };
 
 #endif

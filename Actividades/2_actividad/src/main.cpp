@@ -1,4 +1,5 @@
 #include <chrono>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include "genetic_algorithm.hpp"
@@ -13,6 +14,8 @@ struct Config {
     int generations = 50;
     float mutation_rate = 0.01f;
     bool verbose = false;
+    float convergence_threshold = 0.001f;
+    std::string report_file;
 };
 
 void print_usage(const char *program) {
@@ -26,6 +29,9 @@ void print_usage(const char *program) {
         << "  --population <n>       Tamaño de población (default: 100)\n"
         << "  --generations <n>      Número de generaciones (default: 50)\n"
         << "  --mutation-rate <f>    Tasa de mutación (default: 0.01)\n"
+        << "  --convergence-threshold <f> Umbral de convergencia (default: "
+           "0.001)\n"
+        << "  --report-file <path>   Archivo para reporte CSV (opcional)\n"
         << "  --verbose              Mostrar información detallada\n"
         << "  --help, -h             Mostrar esta ayuda\n";
 }
@@ -50,6 +56,10 @@ int main(int argc, char *argv[]) {
             conf.generations = std::stoi(argv[++i]);
         else if (flag == "--mutation-rate" && i + 1 < argc)
             conf.mutation_rate = std::stof(argv[++i]);
+        else if (flag == "--convergence-threshold" && i + 1 < argc)
+            conf.convergence_threshold = std::stof(argv[++i]);
+        else if (flag == "--report-file" && i + 1 < argc)
+            conf.report_file = argv[++i];
         else if (flag == "--verbose")
             conf.verbose = true;
         else if (flag == "--help" || flag == "-h") {
@@ -95,6 +105,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Población: " << conf.population_size << "\n";
     std::cout << "Generaciones: " << conf.generations << "\n";
     std::cout << "Tasa de mutación: " << conf.mutation_rate << "\n";
+    std::cout << "Umbral convergencia: " << conf.convergence_threshold << "\n";
 
     if (conf.variant == "islands") {
         std::cerr << "Advertencia: variante 'islands' aún no implementada. "
@@ -105,6 +116,7 @@ int main(int argc, char *argv[]) {
 
     GeneticAlgorithm ga(instance, conf.population_size, conf.generations,
                         conf.mutation_rate, conf.seed);
+    ga.SetConvergenceThreshold(conf.convergence_threshold);
 
     if (conf.threads > 1) {
         ga.RunParallel(conf.threads);
@@ -114,6 +126,29 @@ int main(int argc, char *argv[]) {
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
+
+    const auto &stats = ga.GetStats();
+
+    std::cout << "\n=== Reporte por Generación ===\n";
+    std::cout << "Gen\tBest\tAvg\tWorst\tValid\tConverg\n";
+    for (const auto &s : stats) {
+        std::cout << s.generation << "\t" << s.best_fitness << "\t"
+                  << s.avg_fitness << "\t" << s.worst_fitness << "\t"
+                  << s.valid_count << "/" << conf.population_size << "\t"
+                  << s.convergence_delta << "\n";
+    }
+
+    if (!conf.report_file.empty()) {
+        std::ofstream file(conf.report_file);
+        file << "generation,best_fitness,avg_fitness,worst_fitness,valid_count,"
+                "convergence_delta\n";
+        for (const auto &s : stats) {
+            file << s.generation << "," << s.best_fitness << ","
+                 << s.avg_fitness << "," << s.worst_fitness << ","
+                 << s.valid_count << "," << s.convergence_delta << "\n";
+        }
+        std::cout << "Reporte guardado en: " << conf.report_file << "\n";
+    }
 
     if (conf.verbose) {
         ga.View_Population();
