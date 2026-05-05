@@ -43,13 +43,15 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
         new_population.push_back(best_ever);
 
         int children_needed = population_size - 1;
-        std::vector<Individual> children(children_needed);
+        std::vector<Individual> children;
+        children.reserve(children_needed);
 
 #pragma omp parallel
         {
             std::mt19937 thread_rng = get_rng_for_thread(omp_get_thread_num());
+            std::vector<Individual> local_children;
 
-#pragma omp for schedule(static)
+#pragma omp for schedule(static) nowait
             for (int i = 0; i < children_needed; i += 2) {
                 int tournament_size = 3;
                 Individual p1 = Selection::Tournament(
@@ -63,10 +65,16 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
                 Mutation::BitFlip(c1, mutation_rate, thread_rng);
                 Mutation::BitFlip(c2, mutation_rate, thread_rng);
 
-                children[i] = c1;
+                local_children.push_back(c1);
                 if (i + 1 < children_needed) {
-                    children[i + 1] = c2;
+                    local_children.push_back(c2);
                 }
+            }
+
+#pragma omp critical
+            {
+                children.insert(children.end(), local_children.begin(),
+                                local_children.end());
             }
         }
 
