@@ -5,6 +5,7 @@
 #include <iostream>
 #include <numeric>
 #include <random>
+#include <omp.h>
 
 #include "crossover.hpp"
 #include "mutation.hpp"
@@ -101,14 +102,21 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
         std::vector<Individual> children;
         children.reserve(children_needed);
 
+        int actual_threads = num_threads;
+        if (actual_threads <= 0) {
+            actual_threads = 1;
+        }
+
+        std::vector<std::vector<Individual>> all_children(actual_threads);
+
 #pragma omp parallel
         {
-            std::mt19937 thread_rng = get_rng_for_thread(omp_get_thread_num());
-            std::vector<Individual> local_children;
+            int tid = omp_get_thread_num();
+            std::mt19937 thread_rng = get_rng_for_thread(tid);
+            int tournament_size = 3;
 
-#pragma omp for schedule(static) nowait
+#pragma omp for schedule(static)
             for (int i = 0; i < children_needed; i += 2) {
-                int tournament_size = 3;
                 Individual p1 = Selection::Tournament(
                     population, tournament_size, thread_rng);
                 Individual p2 = Selection::Tournament(
@@ -120,17 +128,16 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
                 Mutation::BitFlip(c1, mutation_rate, thread_rng);
                 Mutation::BitFlip(c2, mutation_rate, thread_rng);
 
-                local_children.push_back(c1);
+                all_children[tid].push_back(c1);
                 if (i + 1 < children_needed) {
-                    local_children.push_back(c2);
+                    all_children[tid].push_back(c2);
                 }
             }
+        }
 
-#pragma omp critical
-            {
-                children.insert(children.end(), local_children.begin(),
-                                local_children.end());
-            }
+        for (int t = 0; t < actual_threads; ++t) {
+            children.insert(children.end(), all_children[t].begin(),
+                            all_children[t].end());
         }
 
         for (int i = 0; i < children_needed; ++i) {

@@ -48,7 +48,7 @@ run: all
 run small:
 	./$(TARGET) --instance data/small \
 				--variant islands \
-				--threads 8 \
+				--threads 2 \
 				--seed 123\
 
 # Limpieza profunda

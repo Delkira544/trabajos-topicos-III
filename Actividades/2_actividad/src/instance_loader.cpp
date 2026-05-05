@@ -148,10 +148,10 @@ KnapsackConfig InstanceLoader::loadKnapsackConfig(const std::string &path) {
 PenaltyConfig InstanceLoader::loadPenaltyConfig(const std::string &path) {
     std::ifstream file(path);
     if (!file.is_open()) {
-        return {2.0f, 2.0f, 0.15f, 0.15f, 0.1f};
+        return {50.0f, 50.0f, 100.0f, 500.0f, 500.0f};
     }
 
-    PenaltyConfig config{2.0f, 2.0f, 0.15f, 0.15f, 0.1f};
+    PenaltyConfig config{50.0f, 50.0f, 100.0f, 500.0f, 500.0f};
 
     std::string line;
     std::getline(file, line); // skip header
@@ -169,15 +169,15 @@ PenaltyConfig InstanceLoader::loadPenaltyConfig(const std::string &path) {
 
         key = trim(key);
         if (key == "peso_exceso")
-            config.weight_penalty = value;
+            config.alpha = value;
         else if (key == "volumen_exceso")
-            config.volume_penalty = value;
+            config.beta = value;
         else if (key == "incompatibilidad")
-            config.incompatibility_penalty = value;
+            config.delta = value;
         else if (key == "dependencia")
-            config.dependency_penalty = value;
+            config.epsilon = value;
         else if (key == "categoria")
-            config.category_penalty = value;
+            config.gamma = value;
     }
 
     return config;

@@ -35,11 +35,11 @@ struct KnapsackConfig {
 };
 
 struct PenaltyConfig {
-    float weight_penalty = 2.0f;
-    float volume_penalty = 2.0f;
-    float incompatibility_penalty = 0.15f;
-    float dependency_penalty = 0.15f;
-    float category_penalty = 0.1f;
+    float alpha = 5.0f;    // Multa por cada kg extra de peso
+    float beta = 5.0f;     // Multa por cada litro extra de volumen
+    float gamma = 10.0f;   // Multa por romper regla de categoría
+    float delta = 50.0f;   // Multa por cada par incompatible
+    float epsilon = 50.0f; // Multa por cada dependencia faltante
 };
 
 struct Instance {
