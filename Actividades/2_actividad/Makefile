@@ -45,11 +45,28 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 run: all
 	./$(TARGET)
 
-run small:
+small: all
 	./$(TARGET) --instance data/small \
-				--variant islands \
-				--threads 2 \
-				--seed 123\
+		    	--population 120 \
+		    	--generations 500 \
+		    	--report-file results/report_small.csv \
+				--threads 4 \
+				--seed 123
+medium: all
+	./$(TARGET) --instance data/medium \
+               	--population 120 \
+               	--generations 500 \
+               	--report-file results/report_medium.csv \
+				--threads 4 \
+				--seed 123
+
+large: all
+	./$(TARGET) --instance data/large \
+				--threads 4 \
+				--population 120 \
+				--generations 500 \
+				--report-file results/report_large.csv \
+				--seed 123
 
 # Limpieza profunda
 clean:

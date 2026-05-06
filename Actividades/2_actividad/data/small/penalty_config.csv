@@ -1,6 +1,6 @@
-restriccion,coeficiente
-peso_exceso,2.0
-volumen_exceso,2.0
-incompatibilidad,0.15
-dependencia,0.15
-categoria,0.1
+penalty_type,value
+peso_exceso,100.0
+volumen_exceso,100.0
+categoria,5000.0
+incompatibilidad,2000.0
+dependencia,2000.0

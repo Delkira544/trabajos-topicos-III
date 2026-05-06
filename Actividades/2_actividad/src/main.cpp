@@ -12,7 +12,7 @@ struct Config {
     int seed = 0;
     int population_size = 100;
     int generations = 50;
-    float mutation_rate = 0.02f;
+    float mutation_rate = 0.03f;
     bool verbose = false;
     float convergence_threshold = 0.001f;
     std::string report_file;

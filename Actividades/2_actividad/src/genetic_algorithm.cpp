@@ -158,7 +158,7 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
 
         RecordStats(gen);
 
-        if (HasConverged()) {
+        if (HasConverged() && best_ever.is_valid) {
             std::cout << "Convergencia detectada en generacion " << gen << "\n";
             break;
         }
@@ -292,7 +292,7 @@ void GeneticAlgorithm::Run() {
 
         RecordStats(gen);
 
-        if (HasConverged()) {
+        if (HasConverged() && best_ever.is_valid) {
             std::cout << "Convergencia detectada en generacion " << gen << "\n";
             break;
         }

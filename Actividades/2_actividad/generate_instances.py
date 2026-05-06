@@ -33,21 +33,53 @@ INSTANCES = {
 CAPACITY_RATIO = 0.40
 
 # Proporciones de incompatibilidades y dependencias sobre n_items
-INCOMPATIBILITY_RATIO = 0.03  # ~3% de pares incompatibles
-DEPENDENCY_RATIO = 0.05  # ~5% de ítems con dependencia
+# Se ajustan dinámicamente según el tamaño de la instancia
+BASE_INCOMPATIBILITY_RATIO = 0.03  # ~3% de pares incompatibles para small
+BASE_DEPENDENCY_RATIO = 0.05  # ~5% de ítems con dependencia para small
+
+
+def calculate_penalties(n_items: int) -> dict:
+    """
+    Calcula penalizaciones proporcionales al tamaño de la instancia.
+    Valores base son para small (100 ítems), escalan linealmente.
+    """
+    # Valores base para instancia small (100 ítems)
+    base_alpha = 10.0    # por kg exceso peso
+    base_beta = 10.0     # por litro exceso volumen
+    base_gamma = 50.0    # por violación de categoría
+    base_delta = 200.0    # por par incompatible
+    base_epsilon = 200.0  # por dependencia faltante
+
+    # Factor de escala: small=1x, medium=10x, large=100x
+    scale = n_items / 100
+
+    return {
+        "alpha": base_alpha * scale,
+        "beta": base_beta * scale,
+        "gamma": base_gamma * scale,
+        "delta": base_delta * scale,
+        "epsilon": base_epsilon * scale,
+    }
 
 
 def generate_items(n_items: int, n_categories: int, rng: random.Random) -> list[dict]:
-    """Genera la lista de ítems con valor, peso, volumen y categoría."""
+    """Genera la lista de ítems con valor, peso, volumen y categoría proporcionales."""
     categories = [f"cat_{c}" for c in range(n_categories)]
+    
+    # Escalar rangos basado en el tamaño de la instancia: √(n/100)
+    scale = max(1.0, (n_items / 100) ** 0.5)
+    max_value = int(1000 * scale)
+    max_weight = int(100 * scale)
+    max_volume = int(100 * scale)
+    
     items = []
     for i in range(n_items):
         items.append(
             {
                 "id": i,
-                "valor": rng.randint(1, 1000),
-                "peso": rng.randint(1, 100),
-                "volumen": rng.randint(1, 100),
+                "valor": rng.randint(1, max_value),
+                "peso": rng.randint(1, max_weight),
+                "volumen": rng.randint(1, max_volume),
                 "categoria": rng.choice(categories),
             }
         )
@@ -159,11 +191,17 @@ def generate_instance(
     n_items = cfg["n_items"]
     n_categories = cfg["n_categories"]
 
+    # ── Calcular ratios proporcionales ────────────────────────
+    # Ajustar ratios dinámicamente: cap máximo para evitar exceso
+    incomp_ratio = min(BASE_INCOMPATIBILITY_RATIO, 50.0 / n_items)
+    dep_ratio = min(BASE_DEPENDENCY_RATIO, 100.0 / n_items)
+
     # ── Generar datos ──────────────────────────────────────────
     items = generate_items(n_items, n_categories, rng)
     category_rules = generate_category_rules(items, n_categories, rng)
-    incompatibilities = generate_incompatibilities(n_items, INCOMPATIBILITY_RATIO, rng)
-    dependencies = generate_dependencies(n_items, DEPENDENCY_RATIO, rng)
+    incompatibilities = generate_incompatibilities(n_items, incomp_ratio, rng)
+    dependencies = generate_dependencies(n_items, dep_ratio, rng)
+    penalties = calculate_penalties(n_items)
 
     # ── Escribir CSV ───────────────────────────────────────────
     write_csv(
@@ -186,11 +224,27 @@ def generate_instance(
         ["id_item", "id_requerido"],
         dependencies,
     )
+    write_csv(
+        os.path.join(out_dir, "penalty_config.csv"),
+        ["penalty_type", "value"],
+        [
+            {"penalty_type": "peso_exceso", "value": penalties["alpha"]},
+            {"penalty_type": "volumen_exceso", "value": penalties["beta"]},
+            {"penalty_type": "categoria", "value": penalties["gamma"]},
+            {"penalty_type": "incompatibilidad", "value": penalties["delta"]},
+            {"penalty_type": "dependencia", "value": penalties["epsilon"]},
+        ],
+    )
 
     print_summary(name, items, CAPACITY_RATIO)
     print(f"    Reglas de categoría:   {len(category_rules)}")
     print(f"    Incompatibilidades:    {len(incompatibilities)}")
     print(f"    Dependencias:          {len(dependencies)}")
+    print(f"    Penalización peso:     {penalties['alpha']:.1f}")
+    print(f"    Penalización volumen:  {penalties['beta']:.1f}")
+    print(f"    Penalización categ:    {penalties['gamma']:.1f}")
+    print(f"    Penalización incomp:   {penalties['delta']:.1f}")
+    print(f"    Penalización dep:      {penalties['epsilon']:.1f}")
     print(f"    Archivos en:           {out_dir}/")
 
 
