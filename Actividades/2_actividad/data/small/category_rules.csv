@@ -1,6 +1,6 @@
 categoria,minimo,maximo
-cat_3,1,9
-cat_2,1,12
-cat_1,0,6
-cat_0,1,14
+cat_2,0,12
+cat_0,0,14
 cat_4,1,7
+cat_1,1,20
+cat_3,0,4

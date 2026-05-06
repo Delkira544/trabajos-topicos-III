@@ -2,7 +2,7 @@
 ifeq ($(OS), Windows_NT)
     # Configuración para Windows
     RM = del /Q
-    MKDIR = mkdir
+    MKDIR = if not exist $(BUILD_DIR) mkdir
     EXT = .exe
     # Función para arreglar las barras en Windows ( / -> \ )
     FIX_PATH = $(subst /,\,$1)
