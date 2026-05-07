@@ -40,38 +40,28 @@ BASE_DEPENDENCY_RATIO = 0.05  # ~5% de ítems con dependencia para small
 
 def calculate_penalties(n_items: int) -> dict:
     """
-    Calcula penalizaciones proporcionales al tamaño de la instancia.
-    Valores base son para small (100 ítems), escalan linealmente.
+    Calcula penalizaciones usando el Método de Combinación Convexa.
+    La suma de todos los pesos es exactamente 1.0 (100%).
     """
-    # Valores base para instancia small (100 ítems)
-    base_alpha = 10.0    # por kg exceso peso
-    base_beta = 10.0     # por litro exceso volumen
-    base_gamma = 50.0    # por violación de categoría
-    base_delta = 200.0    # por par incompatible
-    base_epsilon = 200.0  # por dependencia faltante
-
-    # Factor de escala: small=1x, medium=10x, large=100x
-    scale = n_items / 100
-
     return {
-        "alpha": base_alpha * scale,
-        "beta": base_beta * scale,
-        "gamma": base_gamma * scale,
-        "delta": base_delta * scale,
-        "epsilon": base_epsilon * scale,
+        "alpha": 0.30,  # 30% de importancia al Exceso de Peso
+        "beta": 0.20,  # 20% de importancia al Exceso de Volumen
+        "gamma": 0.10,  # 10% de importancia a las Categorías
+        "delta": 0.20,  # 20% de importancia a las Incompatibilidades
+        "epsilon": 0.20,  # 20% de importancia a las Dependencias
     }
 
 
 def generate_items(n_items: int, n_categories: int, rng: random.Random) -> list[dict]:
     """Genera la lista de ítems con valor, peso, volumen y categoría proporcionales."""
     categories = [f"cat_{c}" for c in range(n_categories)]
-    
+
     # Escalar rangos basado en el tamaño de la instancia: √(n/100)
     scale = max(1.0, (n_items / 100) ** 0.5)
     max_value = int(1000 * scale)
     max_weight = int(100 * scale)
     max_volume = int(100 * scale)
-    
+
     items = []
     for i in range(n_items):
         items.append(
@@ -166,12 +156,10 @@ def write_csv(filepath: str, fieldnames: list[str], rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def print_summary(name: str, items: list[dict], capacity_ratio: float) -> None:
+def print_summary(name: str, items: list[dict], W: int, V: int, capacity_ratio: float) -> None:
     """Imprime un resumen de la instancia generada."""
     total_peso = sum(it["peso"] for it in items)
     total_volumen = sum(it["volumen"] for it in items)
-    W = int(total_peso * capacity_ratio)
-    V = int(total_volumen * capacity_ratio)
     print(f"\n  [{name}] {len(items)} ítems")
     print(
         f"    Suma total peso:    {total_peso:>10}  →  W = {W} ({capacity_ratio * 100:.0f}%)"
@@ -202,6 +190,12 @@ def generate_instance(
     incompatibilities = generate_incompatibilities(n_items, incomp_ratio, rng)
     dependencies = generate_dependencies(n_items, dep_ratio, rng)
     penalties = calculate_penalties(n_items)
+
+    # ── Capacidad de la mochila (proporcional al total de items) ─
+    total_peso = sum(it["peso"] for it in items)
+    total_volumen = sum(it["volumen"] for it in items)
+    W = int(total_peso * CAPACITY_RATIO)
+    V = int(total_volumen * CAPACITY_RATIO)
 
     # ── Escribir CSV ───────────────────────────────────────────
     write_csv(
@@ -235,8 +229,13 @@ def generate_instance(
             {"penalty_type": "dependencia", "value": penalties["epsilon"]},
         ],
     )
+    write_csv(
+        os.path.join(out_dir, "knapsack_config.csv"),
+        ["max_weight", "max_volume"],
+        [{"max_weight": W, "max_volume": V}],
+    )
 
-    print_summary(name, items, CAPACITY_RATIO)
+    print_summary(name, items, W, V, CAPACITY_RATIO)
     print(f"    Reglas de categoría:   {len(category_rules)}")
     print(f"    Incompatibilidades:    {len(incompatibilities)}")
     print(f"    Dependencias:          {len(dependencies)}")

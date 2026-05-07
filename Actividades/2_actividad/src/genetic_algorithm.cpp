@@ -169,7 +169,7 @@ void GeneticAlgorithm::Initialize_Population() {
     population.clear();
     population.reserve(population_size);
 
-    std::bernoulli_distribution d(0.5);
+    std::bernoulli_distribution d(0.35);
 
     std::vector<int> indices(instance.items.size());
     std::iota(indices.begin(), indices.end(), 0);

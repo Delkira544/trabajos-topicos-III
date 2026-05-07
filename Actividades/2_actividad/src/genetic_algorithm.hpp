@@ -35,11 +35,11 @@ struct KnapsackConfig {
 };
 
 struct PenaltyConfig {
-    float alpha = 5.0f;    // Multa por cada kg extra de peso
-    float beta = 5.0f;     // Multa por cada litro extra de volumen
-    float gamma = 10.0f;   // Multa por romper regla de categoría
-    float delta = 50.0f;   // Multa por cada par incompatible
-    float epsilon = 50.0f; // Multa por cada dependencia faltante
+    float alpha = 0.2f;   // Peso (convexo) para exceso de peso
+    float beta = 0.2f;    // Peso (convexo) para exceso de volumen
+    float gamma = 0.3f;   // Peso (convexo) para errores de categoría
+    float delta = 0.1f;   // Peso (convexo) para incompatibilidades
+    float epsilon = 0.2f; // Peso (convexo) para dependencias faltantes
 };
 
 struct Instance {

@@ -1,6 +1,6 @@
 penalty_type,value
-peso_exceso,100.0
-volumen_exceso,100.0
-categoria,5000.0
-incompatibilidad,2000.0
-dependencia,2000.0
+peso_exceso,0.3
+volumen_exceso,0.2
+categoria,0.1
+incompatibilidad,0.2
+dependencia,0.2

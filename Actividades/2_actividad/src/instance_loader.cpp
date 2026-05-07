@@ -148,10 +148,10 @@ KnapsackConfig InstanceLoader::loadKnapsackConfig(const std::string &path) {
 PenaltyConfig InstanceLoader::loadPenaltyConfig(const std::string &path) {
     std::ifstream file(path);
     if (!file.is_open()) {
-        return {50.0f, 50.0f, 100.0f, 500.0f, 500.0f};
+        return {0.2f, 0.2f, 0.2f, 0.2f, 0.2f};
     }
 
-    PenaltyConfig config{50.0f, 50.0f, 100.0f, 500.0f, 500.0f};
+    PenaltyConfig config{0.2f, 0.2f, 0.2f, 0.2f, 0.2f};
 
     std::string line;
     std::getline(file, line); // skip header
