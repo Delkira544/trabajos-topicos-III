@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include "genetic_algorithm.hpp"
+#include "fitness.hpp"
 #include "instance_loader.hpp"
 
 struct Config {
@@ -177,6 +178,9 @@ int main(int argc, char *argv[]) {
     std::cout << "Volumen total: " << total_volume << " / "
               << instance.knapsack.max_volume << "\n";
     std::cout << "Valor total: " << total_value << "\n";
+
+    Fitness::PrintConstraintDetails(mejor, instance);
+
     std::cout << "\nTiempo de ejecución: " << elapsed.count() << "s\n";
 
     return 0;
