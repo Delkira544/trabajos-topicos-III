@@ -18,9 +18,22 @@ namespace Selection {
         for (int i = 1; i < k; ++i) {
             int rand_idx = dist(rng);
 
-            if (population[rand_idx].fitness > best_fitness) {
-                best_fitness = population[rand_idx].fitness;
+            const Individual &current = population[best_idx];
+            const Individual &candidate = population[rand_idx];
+
+            bool candidate_better = false;
+
+            if (candidate.is_valid && current.is_valid) {
+                candidate_better = candidate.fitness > best_fitness;
+            } else if (!candidate.is_valid == !current.is_valid) {
+                candidate_better = candidate.fitness > best_fitness;
+            } else if (candidate.is_valid && !current.is_valid) {
+                candidate_better = true;
+            }
+
+            if (candidate_better) {
                 best_idx = rand_idx;
+                best_fitness = candidate.fitness;
             }
         }
 
