@@ -123,23 +123,17 @@ void IslandModel::Migrate() {
     }
 }
 
-void IslandModel::RunParallel(int num_threads) {
-    if (num_threads > 0) omp_set_num_threads(num_threads);
-    Run();
-}
-
 void IslandModel::Run() {
     RecordStats(0);
     
     for (int gen = 1; gen <= generations; ++gen) {
-        #pragma omp parallel for
         for (int i = 0; i < num_islands; ++i) {
             std::vector<Individual> new_island;
             new_island.reserve(population_per_island);
             // Elitismo local
             new_island.push_back(FindBestInIsland(i));
             
-            while (new_island.size() < population_per_island) {
+            while ((int)new_island.size() < population_per_island) {
                 Individual p1 = Selection::Tournament(islands[i], 3, island_rngs[i]);
                 Individual p2 = Selection::Tournament(islands[i], 3, island_rngs[i]);
                 
@@ -150,7 +144,48 @@ void IslandModel::Run() {
                 Fitness::Evaluate(c1, instance, gen, generations);
                 new_island.push_back(c1);
                 
-                if (new_island.size() < population_per_island) {
+                if ((int)new_island.size() < population_per_island) {
+                    Mutation::BitFlip(c2, mutation_rate, island_rngs[i]);
+                    Fitness::Evaluate(c2, instance, gen, generations);
+                    new_island.push_back(c2);
+                }
+            }
+            islands[i] = std::move(new_island);
+        }
+        
+        if (gen % migration_frequency == 0) {
+            Migrate();
+        }
+        
+        RecordStats(gen);
+    }
+}
+
+void IslandModel::RunParallel(int num_threads) {
+    if (num_threads > 0) omp_set_num_threads(num_threads);
+    
+    RecordStats(0);
+    
+    for (int gen = 1; gen <= generations; ++gen) {
+        #pragma omp parallel for schedule(dynamic)
+        for (int i = 0; i < num_islands; ++i) {
+            std::vector<Individual> new_island;
+            new_island.reserve(population_per_island);
+            // Elitismo local
+            new_island.push_back(FindBestInIsland(i));
+            
+            while ((int)new_island.size() < population_per_island) {
+                Individual p1 = Selection::Tournament(islands[i], 3, island_rngs[i]);
+                Individual p2 = Selection::Tournament(islands[i], 3, island_rngs[i]);
+                
+                Individual c1, c2;
+                Crossover::SinglePoint(p1, p2, c1, c2, island_rngs[i]);
+                
+                Mutation::BitFlip(c1, mutation_rate, island_rngs[i]);
+                Fitness::Evaluate(c1, instance, gen, generations);
+                new_island.push_back(c1);
+                
+                if ((int)new_island.size() < population_per_island) {
                     Mutation::BitFlip(c2, mutation_rate, island_rngs[i]);
                     Fitness::Evaluate(c2, instance, gen, generations);
                     new_island.push_back(c2);
