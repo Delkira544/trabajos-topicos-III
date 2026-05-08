@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include "genetic_algorithm.hpp"
+#include "island_model.hpp"
 #include "fitness.hpp"
 #include "instance_loader.hpp"
 
@@ -17,6 +18,11 @@ struct Config {
     bool verbose = false;
     float convergence_threshold = 0.001f;
     std::string report_file;
+    int num_islands = 4;
+    int population_per_island = 25;
+    int migration_frequency = 10;
+    int num_migrants = 2;
+    std::string migration_topology = "ring";
 };
 
 void print_usage(const char *program) {
@@ -30,9 +36,13 @@ void print_usage(const char *program) {
         << "  --population <n>       Tamaño de población (default: 100)\n"
         << "  --generations <n>      Número de generaciones (default: 50)\n"
         << "  --mutation-rate <f>    Tasa de mutación (default: 0.01)\n"
-        << "  --convergence-threshold <f> Umbral de convergencia (default: "
-           "0.001)\n"
+        << "  --convergence-threshold <f> Umbral de convergencia (default: 0.001)\n"
         << "  --report-file <path>   Archivo para reporte CSV (opcional)\n"
+        << "  --num-islands <n>      Número de islas (default: 4)\n"
+        << "  --pop-per-island <n>   Población por isla (default: 25)\n"
+        << "  --migration-freq <n>   Frecuencia de migración (default: 10)\n"
+        << "  --num-migrants <n>     Cantidad de migrantes (default: 2)\n"
+        << "  --topology <type>      Topología de migración: ring, random (default: ring)\n"
         << "  --verbose              Mostrar información detallada\n"
         << "  --help, -h             Mostrar esta ayuda\n";
 }
@@ -61,6 +71,16 @@ int main(int argc, char *argv[]) {
             conf.convergence_threshold = std::stof(argv[++i]);
         else if (flag == "--report-file" && i + 1 < argc)
             conf.report_file = argv[++i];
+        else if (flag == "--num-islands" && i + 1 < argc)
+            conf.num_islands = std::stoi(argv[++i]);
+        else if (flag == "--pop-per-island" && i + 1 < argc)
+            conf.population_per_island = std::stoi(argv[++i]);
+        else if (flag == "--migration-freq" && i + 1 < argc)
+            conf.migration_frequency = std::stoi(argv[++i]);
+        else if (flag == "--num-migrants" && i + 1 < argc)
+            conf.num_migrants = std::stoi(argv[++i]);
+        else if (flag == "--topology" && i + 1 < argc)
+            conf.migration_topology = argv[++i];
         else if (flag == "--verbose")
             conf.verbose = true;
         else if (flag == "--help" || flag == "-h") {
@@ -108,27 +128,46 @@ int main(int argc, char *argv[]) {
     std::cout << "Tasa de mutación: " << conf.mutation_rate << "\n";
     std::cout << "Umbral convergencia: " << conf.convergence_threshold << "\n";
 
+    std::chrono::duration<double> elapsed;
+    std::vector<GenerationStats> stats;
+    Individual mejor;
+
     if (conf.variant == "islands") {
-        std::cerr << "Advertencia: variante 'islands' aún no implementada. "
-                  << "Usando algoritmo estándar.\n";
-    }
+        auto start = std::chrono::high_resolution_clock::now();
+        IslandModel ga(instance, conf.num_islands, conf.population_per_island,
+                       conf.generations, conf.mutation_rate, conf.migration_frequency,
+                       conf.num_migrants, conf.migration_topology, conf.seed);
+        ga.SetConvergenceThreshold(conf.convergence_threshold);
 
-    auto start = std::chrono::high_resolution_clock::now();
+        if (conf.threads > 1) {
+            ga.RunParallel(conf.threads);
+        } else {
+            ga.Run();
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+        elapsed = end - start;
 
-    GeneticAlgorithm ga(instance, conf.population_size, conf.generations,
-                        conf.mutation_rate, conf.seed);
-    ga.SetConvergenceThreshold(conf.convergence_threshold);
-
-    if (conf.threads > 1) {
-        ga.RunParallel(conf.threads);
+        stats = ga.GetStats();
+        if (conf.verbose) ga.View_Population();
+        mejor = ga.GetBestSolution();
     } else {
-        ga.Run();
+        auto start = std::chrono::high_resolution_clock::now();
+        GeneticAlgorithm ga(instance, conf.population_size, conf.generations,
+                            conf.mutation_rate, conf.seed);
+        ga.SetConvergenceThreshold(conf.convergence_threshold);
+
+        if (conf.threads > 1) {
+            ga.RunParallel(conf.threads);
+        } else {
+            ga.Run();
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+        elapsed = end - start;
+
+        stats = ga.GetStats();
+        if (conf.verbose) ga.View_Population();
+        mejor = ga.GetBestSolution();
     }
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end - start;
-
-    const auto &stats = ga.GetStats();
 
     std::cout << "\n=== Reporte por Generación ===\n";
     std::cout << "Gen\tBest\tAvg\tWorst\tValid\tConverg\n";
@@ -151,11 +190,6 @@ int main(int argc, char *argv[]) {
         std::cout << "Reporte guardado en: " << conf.report_file << "\n";
     }
 
-    if (conf.verbose) {
-        ga.View_Population();
-    }
-
-    Individual mejor = ga.GetBestSolution();
     std::cout << "\n=== Resultados ===\n";
     std::cout << "Mejor Fitness: " << mejor.fitness << "\n";
     std::cout << "Solución válida: " << (mejor.is_valid ? "Sí" : "No") << "\n";
