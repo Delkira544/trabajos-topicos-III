@@ -25,8 +25,8 @@ import random
 # ─────────────────────────────────────────────
 INSTANCES = {
     "small": {"n_items": 100, "n_categories": 5},
-    "medium": {"n_items": 1_000, "n_categories": 10},
-    "large": {"n_items": 10_000, "n_categories": 20},
+    "medium": {"n_items": 1_000, "n_categories": 7},
+    "large": {"n_items": 10_000, "n_categories": 10},
 }
 
 # Porcentaje de capacidad recomendado (instancia media)
@@ -34,8 +34,8 @@ CAPACITY_RATIO = 0.40
 
 # Proporciones de incompatibilidades y dependencias sobre n_items
 # Se ajustan dinámicamente según el tamaño de la instancia
-BASE_INCOMPATIBILITY_RATIO = 0.03  # ~3% de pares incompatibles para small
-BASE_DEPENDENCY_RATIO = 0.05  # ~5% de ítems con dependencia para small
+BASE_INCOMPATIBILITY_RATIO = 0.02  # ~3% de pares incompatibles para small
+BASE_DEPENDENCY_RATIO = 0.01  # ~5% de ítems con dependencia para small
 
 
 def calculate_penalties(n_items: int) -> dict:
@@ -44,11 +44,11 @@ def calculate_penalties(n_items: int) -> dict:
     La suma de todos los pesos es exactamente 1.0 (100%).
     """
     return {
-        "alpha": 0.30,  # 30% de importancia al Exceso de Peso
+        "alpha": 0.10,  # 30% de importancia al Exceso de Peso
         "beta": 0.20,  # 20% de importancia al Exceso de Volumen
-        "gamma": 0.10,  # 10% de importancia a las Categorías
-        "delta": 0.20,  # 20% de importancia a las Incompatibilidades
-        "epsilon": 0.20,  # 20% de importancia a las Dependencias
+        "gamma": 0.30,  # 10% de importancia a las Categorías
+        "delta": 0.10,  # 20% de importancia a las Incompatibilidades
+        "epsilon": 0.30,  # 20% de importancia a las Dependencias
     }
 
 
@@ -156,7 +156,9 @@ def write_csv(filepath: str, fieldnames: list[str], rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def print_summary(name: str, items: list[dict], W: int, V: int, capacity_ratio: float) -> None:
+def print_summary(
+    name: str, items: list[dict], W: int, V: int, capacity_ratio: float
+) -> None:
     """Imprime un resumen de la instancia generada."""
     total_peso = sum(it["peso"] for it in items)
     total_volumen = sum(it["volumen"] for it in items)

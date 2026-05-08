@@ -35,11 +35,11 @@ struct KnapsackConfig {
 };
 
 struct PenaltyConfig {
-    float alpha = 0.2f;   // Peso (convexo) para exceso de peso
+    float alpha = 0.1f;   // Peso (convexo) para exceso de peso
     float beta = 0.2f;    // Peso (convexo) para exceso de volumen
     float gamma = 0.3f;   // Peso (convexo) para errores de categoría
     float delta = 0.1f;   // Peso (convexo) para incompatibilidades
-    float epsilon = 0.2f; // Peso (convexo) para dependencias faltantes
+    float epsilon = 0.3f; // Peso (convexo) para dependencias faltantes
 };
 
 struct Instance {
@@ -81,6 +81,11 @@ class GeneticAlgorithm {
 
     std::vector<Individual> population;
     std::vector<GenerationStats> stats_;
+    float base_mutation_rate_;
+    float current_mutation_rate_;
+    int generations_since_improvement_;
+    static constexpr int STALL_LIMIT = 150;
+    static constexpr float BOOST_RATE = 0.15f;
     float previous_best_fitness_;
     float convergence_threshold_;
 

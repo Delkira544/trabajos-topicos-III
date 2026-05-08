@@ -2,13 +2,17 @@
 #include <algorithm>
 #include <iostream>
 #include <numeric>
+#include <random>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace Fitness {
 
-    void Evaluate(Individual &ind, const Instance &instance) {
+    static constexpr float PENALTY_SCALE = 3.0f;
+
+    void Evaluate(Individual &ind, const Instance &instance, int generation,
+                  int total_generations) {
         // 1. Variables acumuladoras
         float total_value = 0.0f;
         float total_weight = 0.0f;
@@ -126,12 +130,48 @@ namespace Fitness {
             instance.penalties.delta * norm_errores_incompatibilidad +
             instance.penalties.epsilon * norm_errores_dependencia;
 
-        // 6. Asignación de fitness (valor normalizado menos penalización
-        // convexa)
+        // 6. Factor de escala y factor de tiempo sobre la penalización
+        float factor_tiempo = 1.0f + static_cast<float>(generation) /
+                                         static_cast<float>(total_generations);
+        penalizacion_total *= PENALTY_SCALE * factor_tiempo;
+
+        // 7. Asignación de fitness (valor normalizado menos penalización
+        // escalada)
         ind.fitness = norm_value - penalizacion_total;
 
-        // 7. Actualizar is_valid (sin errores = válido)
+        // 8. Actualizar is_valid (sin errores = válido)
         ind.is_valid = (penalizacion_total == 0.0f);
+    }
+
+    void Repair(Individual &ind, const Instance &instance, std::mt19937 &rng) {
+        float total_weight = 0.0f;
+        float total_volume = 0.0f;
+
+        std::vector<int> selected;
+        for (size_t i = 0; i < ind.chromosome.size(); ++i) {
+            if (ind.chromosome[i]) {
+                total_weight += instance.items[i].weight;
+                total_volume += instance.items[i].volume;
+                selected.push_back(i);
+            }
+        }
+
+        if (total_weight <= instance.knapsack.max_weight &&
+            total_volume <= instance.knapsack.max_volume) {
+            return;
+        }
+
+        std::shuffle(selected.begin(), selected.end(), rng);
+
+        for (int idx : selected) {
+            if (total_weight <= instance.knapsack.max_weight &&
+                total_volume <= instance.knapsack.max_volume) {
+                break;
+            }
+            ind.chromosome[idx] = false;
+            total_weight -= instance.items[idx].weight;
+            total_volume -= instance.items[idx].volume;
+        }
     }
 
     void PrintConstraintDetails(const Individual &ind,
