@@ -45,6 +45,7 @@ void print_usage(const char *program) {
         << "  --num-migrants <n>     Cantidad de migrantes (default: 2)\n"
         << "  --topology <type>      Topología de migración: ring, random (default: ring)\n"
         << "  --benchmark            Ejecutar benchmarks en lugar de una corrida simple\n"
+        << "  --config <n>           Configuración de benchmark a utilizar (1-4) (default: 1)\n"
         << "  --verbose              Mostrar información detallada\n"
         << "  --help, -h             Mostrar esta ayuda\n";
 }
@@ -52,6 +53,7 @@ void print_usage(const char *program) {
 int main(int argc, char *argv[]) {
     Config conf;
     bool is_benchmark = false;
+    int bench_config_id = 1;
 
     for (int i = 1; i < argc; ++i) {
         std::string flag = argv[i];
@@ -86,6 +88,8 @@ int main(int argc, char *argv[]) {
             conf.migration_topology = argv[++i];
         else if (flag == "--benchmark")
             is_benchmark = true;
+        else if (flag == "--config" && i + 1 < argc)
+            bench_config_id = std::stoi(argv[++i]);
         else if (flag == "--verbose")
             conf.verbose = true;
         else if (flag == "--help" || flag == "-h") {
@@ -96,6 +100,7 @@ int main(int argc, char *argv[]) {
 
     if (is_benchmark) {
         BenchmarkConfig bconf;
+        bconf.config_id = bench_config_id;
         bconf.instances = {"data/small", "data/medium", "data/large"};
         bconf.threads_list = {1, 2, 4, 8};
         bconf.repetitions = 15;
@@ -108,6 +113,73 @@ int main(int argc, char *argv[]) {
         bconf.migration_frequency = conf.migration_frequency;
         bconf.num_migrants = conf.num_migrants;
         bconf.migration_topology = conf.migration_topology;
+
+        if (conf.variant == "standard") {
+            switch(bench_config_id) {
+                case 1:
+                    bconf.population_size = 100;
+                    bconf.generations = 50;
+                    bconf.mutation_rate = 0.01f;
+                    break;
+                case 2:
+                    bconf.population_size = 100;
+                    bconf.generations = 50;
+                    bconf.mutation_rate = 0.05f;
+                    break;
+                case 3:
+                    bconf.population_size = 200;
+                    bconf.generations = 100;
+                    bconf.mutation_rate = 0.02f;
+                    break;
+                case 4:
+                    bconf.population_size = 50;
+                    bconf.generations = 150;
+                    bconf.mutation_rate = 0.03f;
+                    break;
+                default: break;
+            }
+        } else {
+            switch(bench_config_id) {
+                case 1:
+                    bconf.num_islands = 4;
+                    bconf.population_per_island = 25;
+                    bconf.generations = 50;
+                    bconf.mutation_rate = 0.01f;
+                    bconf.migration_frequency = 10;
+                    bconf.num_migrants = 2;
+                    bconf.migration_topology = "ring";
+                    break;
+                case 2:
+                    bconf.num_islands = 4;
+                    bconf.population_per_island = 25;
+                    bconf.generations = 50;
+                    bconf.mutation_rate = 0.05f;
+                    bconf.migration_frequency = 10;
+                    bconf.num_migrants = 2;
+                    bconf.migration_topology = "random";
+                    break;
+                case 3:
+                    bconf.num_islands = 8;
+                    bconf.population_per_island = 25;
+                    bconf.generations = 100;
+                    bconf.mutation_rate = 0.02f;
+                    bconf.migration_frequency = 20;
+                    bconf.num_migrants = 4;
+                    bconf.migration_topology = "ring";
+                    break;
+                case 4:
+                    bconf.num_islands = 4;
+                    bconf.population_per_island = 25;
+                    bconf.generations = 150;
+                    bconf.mutation_rate = 0.03f;
+                    bconf.migration_frequency = 5;
+                    bconf.num_migrants = 1;
+                    bconf.migration_topology = "random";
+                    break;
+                default: break;
+            }
+        }
+
         if (!conf.report_file.empty()) {
             bconf.report_file = conf.report_file;
         }

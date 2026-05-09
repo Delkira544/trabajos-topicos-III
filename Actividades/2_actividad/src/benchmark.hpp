@@ -6,6 +6,7 @@
 #include <iostream>
 
 struct BenchmarkConfig {
+    int config_id = 1;
     std::vector<std::string> instances;
     std::vector<int> threads_list;
     int repetitions;

@@ -7,6 +7,23 @@
 #include <algorithm>
 #include <omp.h>
 
+/**
+ * @brief Constructor de la clase IslandModel.
+ * 
+ * Inicializa los parámetros de configuración del modelo de islas como el número 
+ * de islas, población, generaciones, mutación, frecuencia y topología de migración.
+ * Inmediatamente después, invoca InitializeIslands para crear la población inicial.
+ *
+ * @param inst Instancia cargada del problema de la mochila.
+ * @param islands_count Cantidad de subpoblaciones (islas).
+ * @param pop_per_island Tamaño de la población dentro de cada isla.
+ * @param gens Número total de generaciones a evolucionar.
+ * @param mut_rate Tasa de mutación a aplicar sobre los cromosomas.
+ * @param mig_freq Frecuencia (en generaciones) con la que ocurre la migración.
+ * @param n_migrants Cantidad de mejores individuos que migrarán de cada isla.
+ * @param top Tipo de topología de interconexión ("ring" o "random").
+ * @param s Semilla inicial base para la reproducibilidad estocástica.
+ */
 IslandModel::IslandModel(const Instance& inst, int islands_count, int pop_per_island, 
                          int gens, float mut_rate, int mig_freq, int n_migrants, 
                          const std::string& top, int s)
@@ -16,6 +33,14 @@ IslandModel::IslandModel(const Instance& inst, int islands_count, int pop_per_is
     InitializeIslands();
 }
 
+/**
+ * @brief Genera e inicializa los individuos de cada isla de forma estocástica.
+ * 
+ * Genera cromosomas aleatorios a nivel de bit (0 ó 1) y evalúa su factor 
+ * de calidad (fitness) base. Adicionalmente, provee una semilla independiente a 
+ * cada RNG (Random Number Generator) de cada isla para que su evolución inicial 
+ * pueda divergir libremente aunque vengan de la misma semilla del problema.
+ */
 void IslandModel::InitializeIslands() {
     islands.resize(num_islands, std::vector<Individual>(population_per_island));
     island_rngs.resize(num_islands);
@@ -90,6 +115,21 @@ void IslandModel::RecordStats(int gen) {
     stats_.push_back(stat);
 }
 
+/**
+ * @brief Orquesta el intercambio biológico de individuos entre ecosistemas aislados (Islas).
+ * 
+ * Durante determinados intervalos (definidos por migration_frequency), las islas exportan 
+ * su conjunto de super élites (definido por num_migrants) hacia otras islas de la red.
+ * El destino se define en base a la topología configurada de reubicación poblacional (topology).
+ * 
+ * Topologías soportadas:
+ * - "ring": Transfiere los mejores individuos cíclicamente hacia la isla vecina de la izquierda matemática: ((i - 1 + N) % N).
+ * - "random": Escoge estocásticamente un ecosistema destino de la red (que no sea el de origen) para transferir a los individuos.
+ *
+ * Los inmigrantes llegan a la isla de destino reemplazando permanentemente a las composiciones 
+ * genéticas con el factor de calidad más bajo (peor fitness), de manera que nunca se altera o 
+ * desbalancea el límite poblacional en el arreglo subyacente.
+ */
 void IslandModel::Migrate() {
     std::vector<std::vector<Individual>> emigrants(num_islands);
     for (int i = 0; i < num_islands; ++i) {
@@ -123,6 +163,20 @@ void IslandModel::Migrate() {
     }
 }
 
+/**
+ * @brief Ejecuta de manera enteramente secuencial el flujo evolutivo del Algoritmo Genético sobre las islas.
+ *
+ * Itérase estrictamente la cantidad de ciclos descritos por parameterizaciones establecidas ("generations").
+ * En cada ciclo, el sistema operativo transita secuencialmente por cada archipiélago para evolucionar a su 
+ * respectiva población. El proceso general a ciclo de vida genético local emplea:
+ * 1. Preservación estricta local por elitismo natural (FindBestInIsland), asegurando que ninguna buena cepa perezca.
+ * 2. Operación de torneo contra especímenes aleatorizados para el pase de material entre padres.
+ * 3. Cruce del tipo "Single Point/Un Punto", seguido de probabilidad de mutación genética (BitFlip).
+ * 4. Actualización del factor de aptitud ante todos los nuevos miembros descendientes (Evaluate).
+ * 
+ * Si la generación de turno lograra coincidir con el lapso de `migration_frequency`, la evaluación se  
+ * suspende momentáneamente con el objetivo de ejecutar intercambios horizontales sincrónicos de información (Migrate).
+ */
 void IslandModel::Run() {
     RecordStats(0);
     
@@ -161,6 +215,16 @@ void IslandModel::Run() {
     }
 }
 
+/**
+ * @brief Orquestador acelerado del Modelo de Islas por multiprocesamiento.
+ *
+ * Utiliza estructuras de OpenMP (\pragma omp parallel for schedule(dynamic)) para procesar
+ * iteraciones simultáneas y verdaderamente dinámicas de cada isla en un procesador o sub-hilo
+ * independiente, sin la necesidad de tener estados críticos que puedan producir condiciones de carrera 
+ * durante el ciclo genético y estocástico interno (ya que cada RNG es independiente en cada isla).
+ * Después de que los hilos calculan la evolución de sus ecosistemas y regresan para sincronizarse en cada ciclo genérico, el proceso 
+ * de migración se ejecuta asincrónicamente mediante una detención lógica.
+ */
 void IslandModel::RunParallel(int num_threads) {
     if (num_threads > 0) omp_set_num_threads(num_threads);
     

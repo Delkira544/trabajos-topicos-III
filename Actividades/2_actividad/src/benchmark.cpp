@@ -24,6 +24,26 @@ struct BenchmarkResult {
 };
 
 void Benchmark::Run(const BenchmarkConfig& config) {
+    std::cout << "=== Configuración del Benchmark ===\n";
+    std::cout << "ID de Configuración: " << config.config_id << "\n";
+    std::cout << "Variante: " << config.variant << "\n";
+    
+    std::cout << "Repeticiones: " << config.repetitions << "\n";
+    std::cout << "Generaciones: " << config.generations << "\n";
+    std::cout << "Tasa de mutación: " << config.mutation_rate << "\n";
+    if (config.variant == "standard") {
+        std::cout << "Población: " << config.population_size << "\n";
+    } else {
+        std::cout << "Número de islas: " << config.num_islands << "\n";
+        std::cout << "Población por isla: " << config.population_per_island << "\n";
+        std::cout << "Frecuencia de migración: " << config.migration_frequency << "\n";
+        std::cout << "Cantidad de migrantes: " << config.num_migrants << "\n";
+        std::cout << "Topología de migración: " << config.migration_topology << "\n";
+    }
+    std::cout << "Hilos a evaluar: ";
+    for (int t : config.threads_list) std::cout << t << " ";
+    std::cout << "\n===================================\n\n";
+
     std::ofstream report(config.report_file);
     if (report.is_open()) {
         report << "Instance,Threads,AvgTime(s),StdTime(s),BestFeasibleValue,BestFitness,Feasible%,Speedup,Efficiency\n";
@@ -148,19 +168,23 @@ void Benchmark::Run(const BenchmarkConfig& config) {
     std::cout << "\n=== Resultados Globales del Benchmark ===\n";
     std::cout << std::left << std::setw(15) << "Instancia" 
               << std::setw(8) << "Hilos" 
-              << std::setw(12) << "Tiempo promedio(s)" 
+              << std::setw(12) << "Tiempo(s)" 
+              << std::setw(12) << "Desv.Std(s)" 
               << std::setw(10) << "Speedup"
               << std::setw(10) << "Efic(%)" 
               << std::setw(12) << "MejorFact" 
+              << std::setw(15) << "MejorFitn" 
               << "Factibles%\n";
-    std::cout << std::string(75, '-') << "\n";
+    std::cout << std::string(105, '-') << "\n";
     for(const auto& r : all_results) {
         std::cout << std::left << std::setw(15) << r.instance_name 
                   << std::setw(8) << r.threads 
                   << std::setw(12) << r.avg_time 
+                  << std::setw(12) << r.std_time 
                   << std::setw(10) << r.speedup
                   << std::setw(10) << (r.efficiency * 100.0)
                   << std::setw(12) << r.best_feasible_value 
+                  << std::setw(15) << r.best_fitness 
                   << r.feasible_percentage << "%\n";
     }
 }
