@@ -80,11 +80,7 @@ namespace Fitness {
 
         // 5. Normalización de cada componente (a [0,1]) y combinación convexa
 
-        // Valor máximo posible (suma de todos los items)
-        float max_possible_value = 0.0f;
-        for (const auto &item : instance.items) {
-            max_possible_value += item.value;
-        }
+        float max_possible_value = instance.max_value;
 
         // Componentes normalizados (protección contra división por cero)
         float norm_value = (max_possible_value > 0.0f)

@@ -44,11 +44,11 @@ def calculate_penalties(n_items: int) -> dict:
     La suma de todos los pesos es exactamente 1.0 (100%).
     """
     return {
-        "alpha": 0.10,  # 30% de importancia al Exceso de Peso
-        "beta": 0.20,  # 20% de importancia al Exceso de Volumen
-        "gamma": 0.30,  # 10% de importancia a las Categorías
-        "delta": 0.10,  # 20% de importancia a las Incompatibilidades
-        "epsilon": 0.30,  # 20% de importancia a las Dependencias
+        "alpha": 0.30,  # 30% de importancia al Exceso de Peso
+        "beta": 0.30,  # 20% de importancia al Exceso de Volumen
+        "gamma": 0.05,  # 10% de importancia a las Categorías
+        "delta": 0.20,  # 20% de importancia a las Incompatibilidades
+        "epsilon": 0.15,  # 20% de importancia a las Dependencias
     }
 
 

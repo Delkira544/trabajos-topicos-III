@@ -25,7 +25,7 @@ namespace Selection {
 
             if (candidate.is_valid && current.is_valid) {
                 candidate_better = candidate.fitness > best_fitness;
-            } else if (!candidate.is_valid == !current.is_valid) {
+            } else if (!candidate.is_valid && !current.is_valid) {
                 candidate_better = candidate.fitness > best_fitness;
             } else if (candidate.is_valid && !current.is_valid) {
                 candidate_better = true;

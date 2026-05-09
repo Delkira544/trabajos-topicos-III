@@ -194,5 +194,8 @@ Instance InstanceLoader::load(const std::string &directory) {
     instance.knapsack = loadKnapsackConfig(directory + "/knapsack_config.csv");
     instance.penalties = loadPenaltyConfig(directory + "/penalty_config.csv");
 
+    for (const auto &item : instance.items)
+        instance.max_value += item.value;
+
     return instance;
 }

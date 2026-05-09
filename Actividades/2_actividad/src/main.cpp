@@ -17,7 +17,7 @@ struct Config {
     int generations = 50;
     float mutation_rate = 0.03f;
     bool verbose = false;
-    float convergence_threshold = 0.001f;
+    float convergence_threshold = 0.00001f;
     std::string report_file;
     int num_islands = 4;
     int population_per_island = 25;
@@ -37,15 +37,19 @@ void print_usage(const char *program) {
         << "  --population <n>       Tamaño de población (default: 100)\n"
         << "  --generations <n>      Número de generaciones (default: 50)\n"
         << "  --mutation-rate <f>    Tasa de mutación (default: 0.01)\n"
-        << "  --convergence-threshold <f> Umbral de convergencia (default: 0.001)\n"
+        << "  --convergence-threshold <f> Umbral de convergencia (default: "
+           "0.001)\n"
         << "  --report-file <path>   Archivo para reporte CSV (opcional)\n"
         << "  --num-islands <n>      Número de islas (default: 4)\n"
         << "  --pop-per-island <n>   Población por isla (default: 25)\n"
         << "  --migration-freq <n>   Frecuencia de migración (default: 10)\n"
         << "  --num-migrants <n>     Cantidad de migrantes (default: 2)\n"
-        << "  --topology <type>      Topología de migración: ring, random (default: ring)\n"
-        << "  --benchmark            Ejecutar benchmarks en lugar de una corrida simple\n"
-        << "  --config <n>           Configuración de benchmark a utilizar (1-4) (default: 1)\n"
+        << "  --topology <type>      Topología de migración: ring, random "
+           "(default: ring)\n"
+        << "  --benchmark            Ejecutar benchmarks en lugar de una "
+           "corrida simple\n"
+        << "  --config <n>           Configuración de benchmark a utilizar "
+           "(1-4) (default: 1)\n"
         << "  --verbose              Mostrar información detallada\n"
         << "  --help, -h             Mostrar esta ayuda\n";
 }
@@ -115,68 +119,70 @@ int main(int argc, char *argv[]) {
         bconf.migration_topology = conf.migration_topology;
 
         if (conf.variant == "standard") {
-            switch(bench_config_id) {
-                case 1:
-                    bconf.population_size = 100;
-                    bconf.generations = 50;
-                    bconf.mutation_rate = 0.01f;
-                    break;
-                case 2:
-                    bconf.population_size = 100;
-                    bconf.generations = 50;
-                    bconf.mutation_rate = 0.05f;
-                    break;
-                case 3:
-                    bconf.population_size = 200;
-                    bconf.generations = 100;
-                    bconf.mutation_rate = 0.02f;
-                    break;
-                case 4:
-                    bconf.population_size = 50;
-                    bconf.generations = 150;
-                    bconf.mutation_rate = 0.03f;
-                    break;
-                default: break;
+            switch (bench_config_id) {
+            case 1:
+                bconf.population_size = 100;
+                bconf.generations = 50;
+                bconf.mutation_rate = 0.01f;
+                break;
+            case 2:
+                bconf.population_size = 100;
+                bconf.generations = 50;
+                bconf.mutation_rate = 0.05f;
+                break;
+            case 3:
+                bconf.population_size = 200;
+                bconf.generations = 100;
+                bconf.mutation_rate = 0.02f;
+                break;
+            case 4:
+                bconf.population_size = 50;
+                bconf.generations = 150;
+                bconf.mutation_rate = 0.03f;
+                break;
+            default:
+                break;
             }
         } else {
-            switch(bench_config_id) {
-                case 1:
-                    bconf.num_islands = 4;
-                    bconf.population_per_island = 25;
-                    bconf.generations = 50;
-                    bconf.mutation_rate = 0.01f;
-                    bconf.migration_frequency = 10;
-                    bconf.num_migrants = 2;
-                    bconf.migration_topology = "ring";
-                    break;
-                case 2:
-                    bconf.num_islands = 4;
-                    bconf.population_per_island = 25;
-                    bconf.generations = 50;
-                    bconf.mutation_rate = 0.05f;
-                    bconf.migration_frequency = 10;
-                    bconf.num_migrants = 2;
-                    bconf.migration_topology = "random";
-                    break;
-                case 3:
-                    bconf.num_islands = 8;
-                    bconf.population_per_island = 25;
-                    bconf.generations = 100;
-                    bconf.mutation_rate = 0.02f;
-                    bconf.migration_frequency = 20;
-                    bconf.num_migrants = 4;
-                    bconf.migration_topology = "ring";
-                    break;
-                case 4:
-                    bconf.num_islands = 4;
-                    bconf.population_per_island = 25;
-                    bconf.generations = 150;
-                    bconf.mutation_rate = 0.03f;
-                    bconf.migration_frequency = 5;
-                    bconf.num_migrants = 1;
-                    bconf.migration_topology = "random";
-                    break;
-                default: break;
+            switch (bench_config_id) {
+            case 1:
+                bconf.num_islands = 4;
+                bconf.population_per_island = 25;
+                bconf.generations = 50;
+                bconf.mutation_rate = 0.01f;
+                bconf.migration_frequency = 10;
+                bconf.num_migrants = 2;
+                bconf.migration_topology = "ring";
+                break;
+            case 2:
+                bconf.num_islands = 4;
+                bconf.population_per_island = 25;
+                bconf.generations = 50;
+                bconf.mutation_rate = 0.05f;
+                bconf.migration_frequency = 10;
+                bconf.num_migrants = 2;
+                bconf.migration_topology = "random";
+                break;
+            case 3:
+                bconf.num_islands = 8;
+                bconf.population_per_island = 25;
+                bconf.generations = 100;
+                bconf.mutation_rate = 0.02f;
+                bconf.migration_frequency = 20;
+                bconf.num_migrants = 4;
+                bconf.migration_topology = "ring";
+                break;
+            case 4:
+                bconf.num_islands = 4;
+                bconf.population_per_island = 25;
+                bconf.generations = 150;
+                bconf.mutation_rate = 0.03f;
+                bconf.migration_frequency = 5;
+                bconf.num_migrants = 1;
+                bconf.migration_topology = "random";
+                break;
+            default:
+                break;
             }
         }
 
@@ -234,8 +240,9 @@ int main(int argc, char *argv[]) {
     if (conf.variant == "islands") {
         auto start = std::chrono::high_resolution_clock::now();
         IslandModel ga(instance, conf.num_islands, conf.population_per_island,
-                       conf.generations, conf.mutation_rate, conf.migration_frequency,
-                       conf.num_migrants, conf.migration_topology, conf.seed);
+                       conf.generations, conf.mutation_rate,
+                       conf.migration_frequency, conf.num_migrants,
+                       conf.migration_topology, conf.seed);
         ga.SetConvergenceThreshold(conf.convergence_threshold);
 
         if (conf.threads > 1) {

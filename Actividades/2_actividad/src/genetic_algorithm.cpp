@@ -110,6 +110,7 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
         // Elitismo selectivo: solo preservar si es válido
         if (best_ever.is_valid) {
             new_population.push_back(best_ever);
+            Fitness::Evaluate(new_population.back(), instance, gen, generations);
         }
 
         int children_needed =
@@ -178,7 +179,7 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
         population = std::move(new_population);
 
         Individual current_best = FindBest(population);
-        if (current_best.fitness > best_ever.fitness) {
+        if (IsBetter(current_best, best_ever)) {
             best_ever = current_best;
             generations_since_improvement_ = 0;
         } else {
@@ -264,7 +265,7 @@ Individual
 GeneticAlgorithm::FindBest(const std::vector<Individual> &pop) const {
     Individual best = pop[0];
     for (size_t i = 1; i < pop.size(); ++i) {
-        if (pop[i].fitness > best.fitness) {
+        if (IsBetter(pop[i], best)) {
             best = pop[i];
         }
     }
@@ -296,6 +297,7 @@ void GeneticAlgorithm::Run() {
         // Elitismo selectivo: solo preservar si es válido
         if (best_ever.is_valid) {
             new_population.push_back(best_ever);
+            Fitness::Evaluate(new_population.back(), instance, gen, generations);
         }
 
         while (static_cast<int>(new_population.size()) < population_size) {
@@ -335,7 +337,7 @@ void GeneticAlgorithm::Run() {
 
         // Actualizar mejor histórico
         Individual current_best = FindBest(population);
-        if (current_best.fitness > best_ever.fitness) {
+        if (IsBetter(current_best, best_ever)) {
             best_ever = current_best;
             generations_since_improvement_ = 0;
         } else {
@@ -356,15 +358,5 @@ Individual GeneticAlgorithm::GetBestSolution() const {
         throw std::runtime_error(
             "La población está vacía. Ejecuta Run() primero.");
     }
-
-    int best_idx = 0;
-    float best_fitness = population[0].fitness;
-
-    for (size_t i = 1; i < population.size(); ++i) {
-        if (population[i].fitness > best_fitness) {
-            best_fitness = population[i].fitness;
-            best_idx = i;
-        }
-    }
-    return population[best_idx];
+    return FindBest(population);
 }

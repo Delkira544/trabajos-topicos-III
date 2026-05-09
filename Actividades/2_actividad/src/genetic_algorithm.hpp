@@ -49,6 +49,7 @@ struct Instance {
     DependencyMap dependencies;
     KnapsackConfig knapsack;
     PenaltyConfig penalties;
+    float max_value = 0.0f;
 };
 
 struct Individual {
@@ -59,6 +60,12 @@ struct Individual {
     Individual() : fitness(0.0), is_valid(true) {
     }
 };
+
+// Válido siempre gana a inválido; entre iguales en validez gana mayor fitness.
+inline bool IsBetter(const Individual &a, const Individual &b) {
+    if (a.is_valid != b.is_valid) return a.is_valid;
+    return a.fitness > b.fitness;
+}
 
 struct GenerationStats {
     int generation;
