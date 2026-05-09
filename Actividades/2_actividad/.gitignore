@@ -76,5 +76,6 @@ __pycache__/
 # Large data instances (keep small for testing)
 data/medium/
 data/large/
-
+data/small/
 result/
+*.csv
