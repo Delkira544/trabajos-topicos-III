@@ -53,6 +53,7 @@ void IslandModel::InitializeIslands() {
             for (size_t j = 0; j < instance.items.size(); ++j) {
                 islands[i][p].chromosome[j] = dis(island_rngs[i]);
             }
+            Fitness::Repair(islands[i][p], instance, island_rngs[i]);
             Fitness::Evaluate(islands[i][p], instance, 0, generations);
         }
     }
@@ -195,11 +196,13 @@ void IslandModel::Run() {
                 Crossover::SinglePoint(p1, p2, c1, c2, island_rngs[i]);
                 
                 Mutation::BitFlip(c1, mutation_rate, island_rngs[i]);
+                Fitness::Repair(c1, instance, island_rngs[i]);
                 Fitness::Evaluate(c1, instance, gen, generations);
                 new_island.push_back(c1);
                 
                 if ((int)new_island.size() < population_per_island) {
                     Mutation::BitFlip(c2, mutation_rate, island_rngs[i]);
+                    Fitness::Repair(c2, instance, island_rngs[i]);
                     Fitness::Evaluate(c2, instance, gen, generations);
                     new_island.push_back(c2);
                 }
@@ -246,11 +249,13 @@ void IslandModel::RunParallel(int num_threads) {
                 Crossover::SinglePoint(p1, p2, c1, c2, island_rngs[i]);
                 
                 Mutation::BitFlip(c1, mutation_rate, island_rngs[i]);
+                Fitness::Repair(c1, instance, island_rngs[i]);
                 Fitness::Evaluate(c1, instance, gen, generations);
                 new_island.push_back(c1);
                 
                 if ((int)new_island.size() < population_per_island) {
                     Mutation::BitFlip(c2, mutation_rate, island_rngs[i]);
+                    Fitness::Repair(c2, instance, island_rngs[i]);
                     Fitness::Evaluate(c2, instance, gen, generations);
                     new_island.push_back(c2);
                 }

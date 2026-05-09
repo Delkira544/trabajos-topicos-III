@@ -36,7 +36,7 @@ void Benchmark::Run(const BenchmarkConfig& config) {
     } else {
         std::cout << "Número de islas: " << config.num_islands << "\n";
         std::cout << "Población por isla: " << config.population_per_island << "\n";
-        std::cout << "Frecuencia de migración: " << config.migration_frequency << "\n";
+        std::cout << "Frecuencia de migración (en generaciones): " << config.migration_frequency << "\n";
         std::cout << "Cantidad de migrantes: " << config.num_migrants << "\n";
         std::cout << "Topología de migración: " << config.migration_topology << "\n";
     }
@@ -47,6 +47,11 @@ void Benchmark::Run(const BenchmarkConfig& config) {
     std::ofstream report(config.report_file);
     if (report.is_open()) {
         report << "Instance,Threads,AvgTime(s),StdTime(s),BestFeasibleValue,BestFitness,Feasible%,Speedup,Efficiency\n";
+    }
+
+    std::ofstream detailed_report("detailed_benchmark.csv");
+    if (detailed_report.is_open()) {
+        detailed_report << "Instance,Threads,Repetition,Time(s),BestFeasibleValue,BestFitness,Feasible%\n";
     }
 
     std::vector<BenchmarkResult> all_results;
@@ -107,19 +112,39 @@ void Benchmark::Run(const BenchmarkConfig& config) {
                 }
                 total_valid_accumulated += valid_in_run;
                 
+                long long current_evaluated = 0;
                 if (config.variant == "islands") {
-                    total_evaluated_accumulated += stats.size() * (config.num_islands * config.population_per_island);
+                    current_evaluated = stats.size() * (config.num_islands * config.population_per_island);
                 } else {
-                    total_evaluated_accumulated += stats.size() * config.population_size;
+                    current_evaluated = stats.size() * config.population_size;
                 }
+                total_evaluated_accumulated += current_evaluated;
 
+                float current_feat = -1.0f;
                 if (mejor.is_valid) {
                     float val = 0.0f;
                     for (size_t i = 0; i < mejor.chromosome.size(); ++i) {
                         if (mejor.chromosome[i]) val += instance.items[i].value;
                     }
+                    current_feat = val;
                     best_feat = std::max(best_feat, val);
                 }
+
+                double rep_feasible_percentage = (static_cast<double>(valid_in_run) / static_cast<double>(current_evaluated)) * 100.0;
+                
+                if (detailed_report.is_open()) {
+                    detailed_report << inst_path << ","
+                                    << t << ","
+                                    << (r + 1) << ","
+                                    << times[r] << ","
+                                    << current_feat << ","
+                                    << mejor.fitness << ","
+                                    << rep_feasible_percentage << "\n";
+                }
+                
+                std::cout << "    [Rep " << (r + 1) << "] Tiempo(s): " << std::fixed << std::setprecision(4) << times[r] 
+                          << "s | bestFit: " << mejor.fitness 
+                          << " | Factibles(%): " << rep_feasible_percentage << "%\n";
             }
 
             // Calcular estadisticas
