@@ -55,14 +55,11 @@ namespace Fitness {
         }
 
         // Categorías
-        for (const auto &[cat_name, count] : category_counts) {
-            auto it = instance.category_rules.find(cat_name);
-            if (it != instance.category_rules.end()) {
-                const CategoryRule &rule = it->second;
-                if (count < rule.min || count > rule.max) {
-                    errores_categoria++;
-                }
-            }
+        for (const auto &[cat_name, rule] : instance.category_rules) {
+            int count = 0;
+            if (category_counts.count(cat_name))
+                count = category_counts.at(cat_name);
+            if (count < rule.min || count > rule.max) errores_categoria++;
         }
 
         // Incompatibilidades
@@ -131,16 +128,16 @@ namespace Fitness {
             instance.penalties.epsilon * norm_errores_dependencia;
 
         // 6. Factor de escala y factor de tiempo sobre la penalización
-        float factor_tiempo = 1.0f + static_cast<float>(generation) /
+        float factor_tiempo = 1.0f + 0.5f * static_cast<float>(generation) /
                                          static_cast<float>(total_generations);
-        penalizacion_total *= PENALTY_SCALE * factor_tiempo;
+        penalizacion_total *= factor_tiempo;
 
         // 7. Asignación de fitness (valor normalizado menos penalización
         // escalada)
         ind.fitness = norm_value - penalizacion_total;
 
         // 8. Actualizar is_valid (sin errores = válido)
-        ind.is_valid = (penalizacion_total == 0.0f);
+        ind.is_valid = (penalizacion_total < 1e-6f);
     }
 
     void Repair(Individual &ind, const Instance &instance, std::mt19937 &rng) {
