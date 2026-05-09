@@ -8,7 +8,7 @@
 #include <cmath>
 #include <iomanip>
 #include <algorithm>
-
+#include <filesystem>
 #include <omp.h>
 
 struct BenchmarkResult {
@@ -44,12 +44,16 @@ void Benchmark::Run(const BenchmarkConfig& config) {
     for (int t : config.threads_list) std::cout << t << " ";
     std::cout << "\n===================================\n\n";
 
+    if (!std::filesystem::exists("results")) {
+        std::filesystem::create_directory("results");
+    }
+
     std::ofstream report(config.report_file);
     if (report.is_open()) {
         report << "Instance,Threads,AvgTime(s),StdTime(s),BestFeasibleValue,BestFitness,Feasible%,Speedup,Efficiency\n";
     }
 
-    std::ofstream detailed_report("detailed_benchmark.csv");
+    std::ofstream detailed_report("results/detailed_benchmark.csv");
     if (detailed_report.is_open()) {
         detailed_report << "Instance,Threads,Repetition,Time(s),BestFeasibleValue,BestFitness,Feasible%\n";
     }
@@ -79,7 +83,7 @@ void Benchmark::Run(const BenchmarkConfig& config) {
             long long total_evaluated_accumulated = 0;
 
             for (int r = 0; r < config.repetitions; ++r) {
-                int seed = 1000 + r * 13; // Semillas registradas y reproducibles
+                int seed = config.base_seed + r * 13; // Semillas registradas y reproducibles
 
                 Individual mejor;
                 std::vector<GenerationStats> stats;
@@ -93,6 +97,7 @@ void Benchmark::Run(const BenchmarkConfig& config) {
                     else ga.Run();
                     mejor = ga.GetBestSolution();
                     stats = ga.GetStats();
+                    if (config.verbose) ga.View_Population();
                 } else {
                     GeneticAlgorithm ga(instance, config.population_size, config.generations,
                                         config.mutation_rate, seed);
@@ -100,6 +105,7 @@ void Benchmark::Run(const BenchmarkConfig& config) {
                     else ga.Run();
                     mejor = ga.GetBestSolution();
                     stats = ga.GetStats();
+                    if (config.verbose) ga.View_Population();
                 }
 
                 double end_time = omp_get_wtime();
@@ -107,17 +113,18 @@ void Benchmark::Run(const BenchmarkConfig& config) {
                 best_fit = std::max(best_fit, mejor.fitness);
                 
                 long long valid_in_run = 0;
-                for(const auto& s : stats) {
-                    valid_in_run += s.valid_count;
-                }
-                total_valid_accumulated += valid_in_run;
-                
                 long long current_evaluated = 0;
-                if (config.variant == "islands") {
-                    current_evaluated = stats.size() * (config.num_islands * config.population_per_island);
-                } else {
-                    current_evaluated = stats.size() * config.population_size;
+
+                if (!stats.empty()) {
+                    valid_in_run = stats.back().valid_count;
+                    if (config.variant == "islands") {
+                        current_evaluated = config.num_islands * config.population_per_island;
+                    } else {
+                        current_evaluated = config.population_size;
+                    }
                 }
+                
+                total_valid_accumulated += valid_in_run;
                 total_evaluated_accumulated += current_evaluated;
 
                 float current_feat = -1.0f;
@@ -142,9 +149,11 @@ void Benchmark::Run(const BenchmarkConfig& config) {
                                     << rep_feasible_percentage << "\n";
                 }
                 
+                
                 std::cout << "    [Rep " << (r + 1) << "] Tiempo(s): " << std::fixed << std::setprecision(4) << times[r] 
                           << "s | bestFit: " << mejor.fitness 
                           << " | Factibles(%): " << rep_feasible_percentage << "%\n";
+                
             }
 
             // Calcular estadisticas
