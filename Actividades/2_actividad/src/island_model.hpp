@@ -28,7 +28,6 @@ private:
     Individual FindBestOverall() const;
     Individual FindBestInIsland(int island_idx) const;
     void RecordStats(int gen);
-    void EvaluateIsland(int island_idx, int gen);
 
 public:
     IslandModel(const Instance& inst, int islands_count, int pop_per_island, 
@@ -39,6 +38,7 @@ public:
     void RunParallel(int num_threads = 0);
     
     void SetConvergenceThreshold(float threshold) { convergence_threshold_ = threshold; }
+    bool HasConverged() const;
     const std::vector<GenerationStats>& GetStats() const { return stats_; }
     Individual GetBestSolution() const { return FindBestOverall(); }
     void View_Population() const;

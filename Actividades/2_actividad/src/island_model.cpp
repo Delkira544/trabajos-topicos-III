@@ -111,9 +111,21 @@ void IslandModel::RecordStats(int gen) {
     stat.best_is_valid = best_overall.is_valid;
     
     if (stats_.empty()) stat.convergence_delta = 0.0f;
-    else stat.convergence_delta = stat.best_fitness - stats_.back().best_fitness;
+    else stat.convergence_delta = std::abs(stat.best_fitness - stats_.back().best_fitness);
     
     stats_.push_back(stat);
+}
+
+bool IslandModel::HasConverged() const {
+    if (stats_.size() < 10) return false;
+
+    size_t window = 10;
+    float delta_sum = 0;
+    for (size_t i = stats_.size() - window; i < stats_.size(); ++i) {
+        delta_sum += stats_[i].convergence_delta;
+    }
+    float avg_delta = delta_sum / window;
+    return avg_delta < convergence_threshold_;
 }
 
 /**
@@ -215,6 +227,11 @@ void IslandModel::Run() {
         }
         
         RecordStats(gen);
+
+        if (HasConverged() && stats_.back().best_is_valid) {
+            std::cout << "Convergencia detectada en generacion " << gen << "\n";
+            break;
+        }
     }
 }
 
@@ -268,6 +285,11 @@ void IslandModel::RunParallel(int num_threads) {
         }
         
         RecordStats(gen);
+
+        if (HasConverged() && stats_.back().best_is_valid) {
+            std::cout << "Convergencia detectada en generacion " << gen << "\n";
+            break;
+        }
     }
 }
 
