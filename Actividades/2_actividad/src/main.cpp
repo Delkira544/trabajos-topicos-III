@@ -6,6 +6,7 @@
 #include "island_model.hpp"
 #include "fitness.hpp"
 #include "instance_loader.hpp"
+#include "benchmark.hpp"
 
 struct Config {
     std::string instance;
@@ -43,12 +44,14 @@ void print_usage(const char *program) {
         << "  --migration-freq <n>   Frecuencia de migración (default: 10)\n"
         << "  --num-migrants <n>     Cantidad de migrantes (default: 2)\n"
         << "  --topology <type>      Topología de migración: ring, random (default: ring)\n"
+        << "  --benchmark            Ejecutar benchmarks en lugar de una corrida simple\n"
         << "  --verbose              Mostrar información detallada\n"
         << "  --help, -h             Mostrar esta ayuda\n";
 }
 
 int main(int argc, char *argv[]) {
     Config conf;
+    bool is_benchmark = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string flag = argv[i];
@@ -81,12 +84,36 @@ int main(int argc, char *argv[]) {
             conf.num_migrants = std::stoi(argv[++i]);
         else if (flag == "--topology" && i + 1 < argc)
             conf.migration_topology = argv[++i];
+        else if (flag == "--benchmark")
+            is_benchmark = true;
         else if (flag == "--verbose")
             conf.verbose = true;
         else if (flag == "--help" || flag == "-h") {
             print_usage(argv[0]);
             return 0;
         }
+    }
+
+    if (is_benchmark) {
+        BenchmarkConfig bconf;
+        bconf.instances = {"data/small", "data/medium", "data/large"};
+        bconf.threads_list = {1, 2, 4, 8};
+        bconf.repetitions = 15;
+        bconf.variant = conf.variant;
+        bconf.population_size = conf.population_size;
+        bconf.generations = conf.generations;
+        bconf.mutation_rate = conf.mutation_rate;
+        bconf.num_islands = conf.num_islands;
+        bconf.population_per_island = conf.population_per_island;
+        bconf.migration_frequency = conf.migration_frequency;
+        bconf.num_migrants = conf.num_migrants;
+        bconf.migration_topology = conf.migration_topology;
+        if (!conf.report_file.empty()) {
+            bconf.report_file = conf.report_file;
+        }
+
+        Benchmark::Run(bconf);
+        return 0;
     }
 
     if (conf.instance.empty()) {
