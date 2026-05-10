@@ -164,9 +164,14 @@ Si el `best_ever` no mejora en `stagnation_limit_ = 50` gens, se reemplaza
 el peor 30% de la población con individuos nuevos re-inicializados.
 
 ### Criterios de término
-1. `--generations` alcanzado.
-2. **Convergencia clásica**: `avg_delta < threshold` sobre ventana de 10 gens, **y** `best.is_valid`.
-3. **Early-stop por estancamiento**: `total_violations ≤ 0` (totalmente factible) **y** sin mejora real (no por inyección) en `near_feasible_stall_limit_ = 250` gens. Esto garantiza que toda solución reportada por esta vía es factible.
+
+Se evalúan en este orden:
+
+1. **`--generations` alcanzado** (límite duro de la corrida).
+2. **Factibilidad + ventana de refinamiento**: cuando el `best_ever_` se vuelve `is_valid` por primera vez, se registra la generación en `first_feasible_gen_`. Una vez transcurridas `gens_after_feasible_limit_ = 75` generaciones desde ese momento, el algoritmo termina. Esto pone un techo predecible al tiempo post-factibilidad: el AG dispone de 75 gens para refinar el valor objetivo y luego sale sí o sí.
+3. **Convergencia clásica** (fallback): `avg_delta < threshold` sobre ventana de 10 gens, **y** `best_ever_.is_valid`. Si el fitness se aplana antes de los 75 gens, el algoritmo sale por aquí.
+
+> Si la corrida termina por (2) o (3), la solución reportada es **factible respecto a TODAS las restricciones** (peso, volumen, categorías, incompatibilidades, dependencias). Sólo si termina por (1) — agotamiento de generaciones — puede no haber alcanzado factibilidad.
 
 ### Función de fitness
 
@@ -237,14 +242,27 @@ Con `--report-file <path>` se vuelca un CSV por generación:
 | 9 | `POPULATION_LARGE = 250` para large | `Makefile` |
 | 10 | Inicialización Bernoulli(0.25) | `genetic_algorithm.cpp` |
 | 11 | `Mutation::TargetedFix` — mutación dirigida a violaciones | `mutation.{hpp,cpp}` |
-| 12 | Early-stop al alcanzar factibilidad y estancarse 250 gens | `genetic_algorithm.cpp` |
+| 12 | Early-stop con ventana de refinamiento de 75 gens post-factibilidad | `genetic_algorithm.cpp`, `island_model.cpp` |
+| 13 | Modelo de islas con todas las mejoras integradas (Uniform, BitFlipAsymmetric, TargetedFix, multi-elite, anti-estancamiento, early-stop) | `island_model.{hpp,cpp}` |
 
 ---
 
-## Resultados con configuración por defecto (`SEED=132512`)
+## Resultados con configuración por defecto (`SEED=132512`, 8 hilos)
 
-| Instancia | n | Resultado | Tiempo |
-|---|---|---|---|
-| small | 100 | ✓ válida | ~0.1 s |
-| medium | 1.000 | ✓ válida | ~0.5 s |
-| large | 10.000 | ✓ válida | ~60–100 s |
+### Variante `standard` (paralela, OpenMP)
+
+| Instancia | n | Población | Resultado | Salida | Tiempo |
+|---|---|---|---|---|---|
+| small | 100 | 120 | ✓ válida | convergencia gen 62 | ~0.09 s |
+| medium | 1.000 | 120 | ✓ válida | convergencia gen 38 | ~0.40 s |
+| large | 10.000 | 250 | ✓ válida | convergencia gen 249 (factible desde gen 239) | ~46 s |
+
+### Variante `islands` (4 islas, 8 hilos, ring)
+
+| Instancia | n | Pop/isla | Resultado | Salida | Tiempo |
+|---|---|---|---|---|---|
+| small | 100 | 30 | ✓ válida | convergencia gen 68 | ~0.13 s |
+| medium | 1.000 | 50 | ✓ válida | convergencia gen 46 (factible desde gen 1) | ~1.2 s |
+| large | 10.000 | 80 | ✓ válida | convergencia gen 199 (factible desde gen 182) | ~70 s |
+
+> En todas las corridas la salida fue por **convergencia clásica** porque el fitness se aplanó antes de agotar la ventana de 75 gens post-factibilidad. La ventana de 75 gens actúa como techo: si el fitness siguiera mejorando lentamente, el algoritmo saldría a las 75 gens exactas tras la primera factibilidad — garantizando un tiempo de ejecución acotado y reproducible.

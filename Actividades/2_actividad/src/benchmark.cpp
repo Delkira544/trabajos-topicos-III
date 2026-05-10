@@ -50,12 +50,14 @@ void Benchmark::Run(const BenchmarkConfig& config) {
 
     std::ofstream report(config.report_file);
     if (report.is_open()) {
-        report << "Instance,Threads,AvgTime(s),StdTime(s),BestFeasibleValue,BestFitness,Feasible%,Speedup,Efficiency\n";
+        report << "Instance,Variant,ConfigID,BaseSeed,Threads,AvgTime(s),StdTime(s),"
+                  "BestFeasibleValue,BestFitness,Feasible%,Speedup,Efficiency\n";
     }
 
     std::ofstream detailed_report("results/detailed_benchmark.csv");
     if (detailed_report.is_open()) {
-        detailed_report << "Instance,Threads,Repetition,Time(s),BestFeasibleValue,BestFitness,Feasible%\n";
+        detailed_report << "Instance,Variant,ConfigID,Threads,Repetition,Seed,"
+                           "Time(s),BestFeasibleValue,BestFitness,Feasible%\n";
     }
 
     std::vector<BenchmarkResult> all_results;
@@ -141,8 +143,11 @@ void Benchmark::Run(const BenchmarkConfig& config) {
                 
                 if (detailed_report.is_open()) {
                     detailed_report << inst_path << ","
+                                    << config.variant << ","
+                                    << config.config_id << ","
                                     << t << ","
                                     << (r + 1) << ","
+                                    << seed << ","
                                     << times[r] << ","
                                     << current_feat << ","
                                     << mejor.fitness << ","
@@ -187,6 +192,9 @@ void Benchmark::Run(const BenchmarkConfig& config) {
 
             if (report.is_open()) {
                 report << res.instance_name << ","
+                       << config.variant << ","
+                       << config.config_id << ","
+                       << config.base_seed << ","
                        << res.threads << ","
                        << res.avg_time << ","
                        << res.std_time << ","

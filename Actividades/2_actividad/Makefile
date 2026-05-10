@@ -75,10 +75,54 @@ large: all
 				--seed $(SEED) \
 				--report-file result/report_large.csv
 
+# benchmark: ejecuta la suite completa para una config dada y guarda
+# los CSV con un prefijo personalizado.
+#
+# Uso:   make benchmark <config> <nombre>
+# Ej:    make benchmark 1 experimento1
+# Salida:
+#   results/<nombre>_bench_standard_<config>.csv
+#   results/<nombre>_bench_islands_<config>.csv
+benchmark: all
+	@mkdir -p results
+	$(eval BENCH_ARGS := $(filter-out $@,$(MAKECMDGOALS)))
+	$(eval BENCH_CONFIG := $(word 1,$(BENCH_ARGS)))
+	$(eval BENCH_NAME := $(word 2,$(BENCH_ARGS)))
+	@if [ -z "$(BENCH_CONFIG)" ] || [ -z "$(BENCH_NAME)" ]; then \
+		echo "Uso: make benchmark <config> <nombre>"; \
+		echo "  ej: make benchmark 1 experimento1"; \
+		echo "  config ∈ {1,2,3,4}"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "===================================================="
+	@echo " Benchmark — config=$(BENCH_CONFIG)  nombre=$(BENCH_NAME)"
+	@echo "===================================================="
+	@echo ""
+	@echo ">>> Variante: standard"
+	./$(TARGET) --benchmark --variant standard --config $(BENCH_CONFIG) \
+		--seed $(SEED) --threads $(THEADS) \
+		--report-file results/$(BENCH_NAME)_bench_standard_$(BENCH_CONFIG).csv
+	@echo ""
+	@echo ">>> Variante: islands"
+	./$(TARGET) --benchmark --variant islands --config $(BENCH_CONFIG) \
+		--seed $(SEED) --threads $(THEADS) \
+		--report-file results/$(BENCH_NAME)_bench_islands_$(BENCH_CONFIG).csv
+	@echo ""
+	@echo "✓ Benchmark terminado. Archivos:"
+	@echo "  results/$(BENCH_NAME)_bench_standard_$(BENCH_CONFIG).csv"
+	@echo "  results/$(BENCH_NAME)_bench_islands_$(BENCH_CONFIG).csv"
+
 # Limpieza profunda
 clean:
 	$(RM) $(call FIX_PATH, $(BUILD_DIR)/*.o)
 	$(RM) $(TARGET)
 	@echo Limpieza completada.
 
-.PHONY: all run clean
+.PHONY: all run clean benchmark
+
+# Catch-all: silencia "No rule to make target ..." cuando se pasan args
+# posicionales (e.g. el "1" y "experimento1" en `make benchmark 1 experimento1`).
+# Sólo se aplica a targets no definidos explícitamente.
+%:
+	@:
