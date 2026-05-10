@@ -78,62 +78,59 @@ namespace Fitness {
             }
         }
 
-        // 5. Normalización de cada componente (a [0,1]) y combinación convexa
+        // 5. Normalización de cada componente a [0,1] usando Pᵢ_max real
 
-        float max_possible_value = instance.max_value;
-
-        // Componentes normalizados (protección contra división por cero)
-        float norm_value = (max_possible_value > 0.0f)
-                               ? (total_value / max_possible_value)
+        // valor_norm = Σvᵢxᵢ / Σvᵢ  (máximo teórico = suma de todos los valores)
+        float norm_value = (instance.max_value > 0.0f)
+                               ? (total_value / instance.max_value)
                                : 0.0f;
 
+        // P_peso / P_peso_max  donde P_peso_max = Σpesos_todos − max_weight
         float norm_exceso_peso =
-            (instance.knapsack.max_weight > 0.0f)
-                ? (exceso_peso / instance.knapsack.max_weight)
+            (instance.max_excess_weight > 0.0f)
+                ? std::min(1.0f, exceso_peso / instance.max_excess_weight)
                 : 0.0f;
 
+        // P_volumen / P_volumen_max  donde P_volumen_max = Σvolúmenes_todos − max_volume
         float norm_exceso_volumen =
-            (instance.knapsack.max_volume > 0.0f)
-                ? (exceso_volumen / instance.knapsack.max_volume)
+            (instance.max_excess_volume > 0.0f)
+                ? std::min(1.0f, exceso_volumen / instance.max_excess_volume)
                 : 0.0f;
 
+        // P_cat / n_categorias  (cada categoría puede violarse una vez → Pᵢ_max = n_cat)
         float norm_errores_categoria =
             (!instance.category_rules.empty())
                 ? (static_cast<float>(errores_categoria) /
                    static_cast<float>(instance.category_rules.size()))
                 : 0.0f;
 
+        // P_incomp / n_incompatibilidades
         float norm_errores_incompatibilidad =
             (!instance.incompatibilities.empty())
                 ? (static_cast<float>(errores_incompatibilidad) /
                    static_cast<float>(instance.incompatibilities.size()))
                 : 0.0f;
 
+        // P_dep / n_dependencias
         float norm_errores_dependencia =
             (!instance.dependencies.empty())
                 ? (static_cast<float>(errores_dependencia) /
                    static_cast<float>(instance.dependencies.size()))
                 : 0.0f;
 
-        // Penalización total = combinación convexa (suma ponderada normalizada)
-        float penalizacion_total =
-            instance.penalties.alpha * norm_exceso_peso +
-            instance.penalties.beta * norm_exceso_volumen +
-            instance.penalties.gamma * norm_errores_categoria +
-            instance.penalties.delta * norm_errores_incompatibilidad +
+        // violacion_norm = Σ wᵢ·(Pᵢ/Pᵢ_max)  con Σwᵢ = 1 → violacion_norm ∈ [0,1]
+        float violacion_norm =
+            instance.penalties.alpha   * norm_exceso_peso +
+            instance.penalties.beta    * norm_exceso_volumen +
+            instance.penalties.gamma   * norm_errores_categoria +
+            instance.penalties.delta   * norm_errores_incompatibilidad +
             instance.penalties.epsilon * norm_errores_dependencia;
 
-        // 6. Factor de escala y factor de tiempo sobre la penalización
-        float factor_tiempo = 1.0f + 0.5f * static_cast<float>(generation) /
-                                         static_cast<float>(total_generations);
-        penalizacion_total *= factor_tiempo;
-
-        // 7. Asignación de fitness (valor normalizado menos penalización
-        // escalada)
-        ind.fitness = norm_value - penalizacion_total;
-
-        // 8. Actualizar is_valid (sin errores = válido)
-        ind.is_valid = (penalizacion_total < 1e-6f);
+        // fitness = α·valor_norm − β·violacion_norm  con α+β=1
+        ind.penalty  = violacion_norm;
+        ind.fitness  = instance.penalties.obj_weight * norm_value
+                     - instance.penalties.pen_weight * violacion_norm;
+        ind.is_valid = (violacion_norm < 1e-6f);
     }
 
     void Repair(Individual &ind, const Instance &instance, std::mt19937 &rng) {

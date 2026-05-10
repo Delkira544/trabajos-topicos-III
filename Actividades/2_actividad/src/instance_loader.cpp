@@ -1,4 +1,5 @@
 #include "instance_loader.hpp"
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -194,8 +195,15 @@ Instance InstanceLoader::load(const std::string &directory) {
     instance.knapsack = loadKnapsackConfig(directory + "/knapsack_config.csv");
     instance.penalties = loadPenaltyConfig(directory + "/penalty_config.csv");
 
-    for (const auto &item : instance.items)
+    float total_weight = 0.0f, total_volume = 0.0f;
+    for (const auto &item : instance.items) {
         instance.max_value += item.value;
+        total_weight += item.weight;
+        total_volume += item.volume;
+    }
+    // Pᵢ_max real: exceso máximo posible si se seleccionan todos los ítems
+    instance.max_excess_weight = std::max(0.0f, total_weight - instance.knapsack.max_weight);
+    instance.max_excess_volume = std::max(0.0f, total_volume - instance.knapsack.max_volume);
 
     return instance;
 }

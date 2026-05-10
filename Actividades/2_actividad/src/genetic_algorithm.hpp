@@ -35,11 +35,15 @@ struct KnapsackConfig {
 };
 
 struct PenaltyConfig {
-    float alpha = 0.1f;   // Peso (convexo) para exceso de peso
-    float beta = 0.2f;    // Peso (convexo) para exceso de volumen
-    float gamma = 0.3f;   // Peso (convexo) para errores de categoría
-    float delta = 0.1f;   // Peso (convexo) para incompatibilidades
-    float epsilon = 0.3f; // Peso (convexo) para dependencias faltantes
+    // wᵢ: pesos de cada restricción dentro de violacion_norm (Σwᵢ = 1)
+    float alpha = 0.1f;   // w₁: exceso de peso
+    float beta = 0.1f;    // w₂: exceso de volumen
+    float gamma = 0.2f;   // w₃: errores de categoría
+    float delta = 0.3f;   // w₄: incompatibilidades
+    float epsilon = 0.3f; // w₅: dependencias
+    // α y β del modelo: fitness = α·valor_norm − β·violacion_norm (α+β=1)
+    float obj_weight = 0.7f; // α: importancia del valor objetivo
+    float pen_weight = 0.3f; // β: importancia de la violación (1−α)
 };
 
 struct Instance {
@@ -50,20 +54,24 @@ struct Instance {
     KnapsackConfig knapsack;
     PenaltyConfig penalties;
     float max_value = 0.0f;
+    float max_excess_weight = 0.0f; // Pᵢ_max real: Σpesos − max_weight
+    float max_excess_volume = 0.0f; // Pᵢ_max real: Σvolúmenes − max_volume
 };
 
 struct Individual {
     std::vector<bool> chromosome;
     float fitness;
+    float penalty; // violacion_norm ∈ [0,1]: 0 = sin violaciones
     bool is_valid;
 
-    Individual() : fitness(0.0), is_valid(true) {
+    Individual() : fitness(0.0f), penalty(1.0f), is_valid(false) {
     }
 };
 
-// Válido siempre gana a inválido; entre iguales en validez gana mayor fitness.
+// Válido gana a inválido; ambos inválidos → menor penalización (más factible); ambos válidos → mayor fitness.
 inline bool IsBetter(const Individual &a, const Individual &b) {
     if (a.is_valid != b.is_valid) return a.is_valid;
+    if (!a.is_valid) return a.penalty < b.penalty;
     return a.fitness > b.fitness;
 }
 

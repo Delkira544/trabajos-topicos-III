@@ -13,28 +13,11 @@ namespace Selection {
         std::uniform_int_distribution<int> dist(0, population.size() - 1);
 
         int best_idx = dist(rng);
-        float best_fitness = population[best_idx].fitness;
 
         for (int i = 1; i < k; ++i) {
             int rand_idx = dist(rng);
-
-            const Individual &current = population[best_idx];
-            const Individual &candidate = population[rand_idx];
-
-            bool candidate_better = false;
-
-            if (candidate.is_valid && current.is_valid) {
-                candidate_better = candidate.fitness > best_fitness;
-            } else if (!candidate.is_valid && !current.is_valid) {
-                candidate_better = candidate.fitness > best_fitness;
-            } else if (candidate.is_valid && !current.is_valid) {
-                candidate_better = true;
-            }
-
-            if (candidate_better) {
+            if (IsBetter(population[rand_idx], population[best_idx]))
                 best_idx = rand_idx;
-                best_fitness = candidate.fitness;
-            }
         }
 
         return population[best_idx];

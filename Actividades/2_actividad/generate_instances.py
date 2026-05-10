@@ -39,8 +39,8 @@ CAPACITY_RATIO = 0.40
 #   small (100):  5 incompatibilidades,  10 dependencias
 #   medium (1000): 50 incompatibilidades, 100 dependencias
 #   large (10000): 500 incompatibilidades, 1000 dependencias
-INCOMPATIBILITY_RATIO = 0.1
-DEPENDENCY_RATIO = 0.08
+INCOMPATIBILITY_RATIO = 0.05
+DEPENDENCY_RATIO = 0.03
 
 
 def calculate_penalties(n_items: int) -> dict:

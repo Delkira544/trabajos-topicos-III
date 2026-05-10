@@ -26,8 +26,6 @@ namespace Crossover {
 
         child1.fitness = 0.0f;
         child2.fitness = 0.0f;
-        child1.is_valid = true;
-        child2.is_valid = true;
     }
 
 } // namespace Crossover
