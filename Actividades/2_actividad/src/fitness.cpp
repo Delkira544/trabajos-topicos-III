@@ -134,6 +134,7 @@ namespace Fitness {
     }
 
     void Repair(Individual &ind, const Instance &instance, std::mt19937 &rng) {
+        (void)rng; // ya no se usa: la eliminación aleatoria fue reemplazada por greedy
         // 1. Reparar incompatibilidades: eliminar el ítem de menor valor del par violado
         for (const auto &incomp : instance.incompatibilities) {
             int a = incomp.id_a, b = incomp.id_b;
@@ -173,26 +174,63 @@ namespace Fitness {
             }
         }
 
-        // 4. Reparar capacidad: eliminar ítems aleatorios hasta satisfacer peso/volumen
-        if (total_weight <= instance.knapsack.max_weight &&
-            total_volume <= instance.knapsack.max_volume) {
-            return;
-        }
+        // 4. Reparar capacidad: eliminación greedy por peor ratio valor/(peso+volumen)
+        //    Iterar junto con dependencias hasta estabilizar (máx. 5 rondas)
+        for (int pass = 0; pass < 5; ++pass) {
+            // 4a. Greedy capacity: eliminar ítems con peor ratio primero
+            if (total_weight > instance.knapsack.max_weight ||
+                total_volume > instance.knapsack.max_volume) {
 
-        std::vector<int> selected;
-        for (size_t i = 0; i < ind.chromosome.size(); ++i) {
-            if (ind.chromosome[i]) selected.push_back(i);
-        }
-        std::shuffle(selected.begin(), selected.end(), rng);
+                std::vector<int> selected;
+                for (size_t i = 0; i < ind.chromosome.size(); ++i) {
+                    if (ind.chromosome[i]) selected.push_back(i);
+                }
+                // Ordenar ascendente por ratio valor/(peso+volumen+1): peores primero
+                std::sort(selected.begin(), selected.end(), [&](int a, int b) {
+                    float ra = instance.items[a].value /
+                               (instance.items[a].weight + instance.items[a].volume + 1.0f);
+                    float rb = instance.items[b].value /
+                               (instance.items[b].weight + instance.items[b].volume + 1.0f);
+                    return ra < rb;
+                });
 
-        for (int idx : selected) {
-            if (total_weight <= instance.knapsack.max_weight &&
+                for (int idx : selected) {
+                    if (total_weight <= instance.knapsack.max_weight &&
+                        total_volume <= instance.knapsack.max_volume) {
+                        break;
+                    }
+                    ind.chromosome[idx] = false;
+                    total_weight -= instance.items[idx].weight;
+                    total_volume -= instance.items[idx].volume;
+                }
+            }
+
+            // 4b. Re-reparar dependencias rotas por la eliminación anterior
+            bool changed = false;
+            for (const auto &[item_id, required_id] : instance.dependencies) {
+                if (ind.chromosome[item_id] && !ind.chromosome[required_id]) {
+                    float w = instance.items[required_id].weight;
+                    float v = instance.items[required_id].volume;
+                    if (total_weight + w <= instance.knapsack.max_weight &&
+                        total_volume + v <= instance.knapsack.max_volume) {
+                        ind.chromosome[required_id] = true;
+                        total_weight += w;
+                        total_volume += v;
+                    } else {
+                        ind.chromosome[item_id] = false;
+                        total_weight -= instance.items[item_id].weight;
+                        total_volume -= instance.items[item_id].volume;
+                    }
+                    changed = true;
+                }
+            }
+
+            // Si no hubo cambios en dependencias y capacidad ok, terminar
+            if (!changed &&
+                total_weight <= instance.knapsack.max_weight &&
                 total_volume <= instance.knapsack.max_volume) {
                 break;
             }
-            ind.chromosome[idx] = false;
-            total_weight -= instance.items[idx].weight;
-            total_volume -= instance.items[idx].volume;
         }
     }
 
