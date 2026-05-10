@@ -27,7 +27,7 @@ struct Incompatibility {
     int id_b;
 };
 
-using DependencyMap = std::unordered_map<int, int>;
+using DependencyMap = std::vector<std::pair<int, int>>; // (id_item, id_requerido)
 
 struct KnapsackConfig {
     float max_weight;

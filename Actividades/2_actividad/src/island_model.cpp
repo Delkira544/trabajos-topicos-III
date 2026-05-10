@@ -53,7 +53,6 @@ void IslandModel::InitializeIslands() {
             for (size_t j = 0; j < instance.items.size(); ++j) {
                 islands[i][p].chromosome[j] = dis(island_rngs[i]);
             }
-            Fitness::Repair(islands[i][p], instance, island_rngs[i]);
             Fitness::Evaluate(islands[i][p], instance, 0, generations);
         }
     }
@@ -62,9 +61,7 @@ void IslandModel::InitializeIslands() {
 Individual IslandModel::FindBestInIsland(int island_idx) const {
     Individual best = islands[island_idx][0];
     for (const auto& ind : islands[island_idx]) {
-        if (ind.fitness > best.fitness) {
-            best = ind;
-        }
+        if (IsBetter(ind, best)) best = ind;
     }
     return best;
 }
@@ -73,9 +70,7 @@ Individual IslandModel::FindBestOverall() const {
     Individual best = islands[0][0];
     for (int i = 0; i < num_islands; ++i) {
         for (const auto& ind : islands[i]) {
-            if (ind.fitness > best.fitness) {
-                best = ind;
-            }
+            if (IsBetter(ind, best)) best = ind;
         }
     }
     return best;
@@ -148,7 +143,7 @@ void IslandModel::Migrate() {
     for (int i = 0; i < num_islands; ++i) {
         std::vector<Individual> sorted_island = islands[i];
         std::sort(sorted_island.begin(), sorted_island.end(),
-                  [](const Individual& a, const Individual& b) { return a.fitness > b.fitness; });
+                  [](const Individual& a, const Individual& b) { return IsBetter(a, b); });
         for (int m = 0; m < num_migrants; ++m) {
             emigrants[i].push_back(sorted_island[m]);
         }
@@ -168,7 +163,7 @@ void IslandModel::Migrate() {
         
         std::vector<Individual>& target_island = islands[i];
         std::sort(target_island.begin(), target_island.end(),
-                  [](const Individual& a, const Individual& b) { return a.fitness > b.fitness; });
+                  [](const Individual& a, const Individual& b) { return IsBetter(a, b); });
                   
         for (int m = 0; m < num_migrants; ++m) {
             target_island[target_island.size() - 1 - m] = emigrants[source_idx][m];
@@ -208,24 +203,22 @@ void IslandModel::Run() {
                 Crossover::SinglePoint(p1, p2, c1, c2, island_rngs[i]);
                 
                 Mutation::BitFlip(c1, mutation_rate, island_rngs[i]);
-                Fitness::Repair(c1, instance, island_rngs[i]);
                 Fitness::Evaluate(c1, instance, gen, generations);
                 new_island.push_back(c1);
-                
+
                 if ((int)new_island.size() < population_per_island) {
                     Mutation::BitFlip(c2, mutation_rate, island_rngs[i]);
-                    Fitness::Repair(c2, instance, island_rngs[i]);
                     Fitness::Evaluate(c2, instance, gen, generations);
                     new_island.push_back(c2);
                 }
             }
             islands[i] = std::move(new_island);
         }
-        
+
         if (gen % migration_frequency == 0) {
             Migrate();
         }
-        
+
         RecordStats(gen);
 
         if (HasConverged() && stats_.back().best_is_valid) {
@@ -266,24 +259,22 @@ void IslandModel::RunParallel(int num_threads) {
                 Crossover::SinglePoint(p1, p2, c1, c2, island_rngs[i]);
                 
                 Mutation::BitFlip(c1, mutation_rate, island_rngs[i]);
-                Fitness::Repair(c1, instance, island_rngs[i]);
                 Fitness::Evaluate(c1, instance, gen, generations);
                 new_island.push_back(c1);
-                
+
                 if ((int)new_island.size() < population_per_island) {
                     Mutation::BitFlip(c2, mutation_rate, island_rngs[i]);
-                    Fitness::Repair(c2, instance, island_rngs[i]);
                     Fitness::Evaluate(c2, instance, gen, generations);
                     new_island.push_back(c2);
                 }
             }
             islands[i] = std::move(new_island);
         }
-        
+
         if (gen % migration_frequency == 0) {
             Migrate();
         }
-        
+
         RecordStats(gen);
 
         if (HasConverged() && stats_.back().best_is_valid) {

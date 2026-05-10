@@ -115,7 +115,7 @@ DependencyMap InstanceLoader::loadDependencies(const std::string &path) {
         std::getline(ss, token, ',');
         id_required = std::stoi(trim(token));
 
-        deps[id_item] = id_required;
+        deps.push_back({id_item, id_required});
     }
     return deps;
 }

@@ -131,9 +131,6 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
                 Mutation::BitFlip(c1, mutation_rate, thread_rng);
                 Mutation::BitFlip(c2, mutation_rate, thread_rng);
 
-                Fitness::Repair(c1, instance, thread_rng);
-                Fitness::Repair(c2, instance, thread_rng);
-
                 all_children[tid].push_back(c1);
                 if (i + 1 < children_needed) {
                     all_children[tid].push_back(c2);
@@ -277,9 +274,6 @@ void GeneticAlgorithm::Run() {
 
             Mutation::BitFlip(c1, mutation_rate, rng);
             Mutation::BitFlip(c2, mutation_rate, rng);
-
-            Fitness::Repair(c1, instance, rng);
-            Fitness::Repair(c2, instance, rng);
 
             Fitness::Evaluate(c1, instance, gen, generations);
             Fitness::Evaluate(c2, instance, gen, generations);

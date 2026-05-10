@@ -134,23 +134,55 @@ namespace Fitness {
     }
 
     void Repair(Individual &ind, const Instance &instance, std::mt19937 &rng) {
+        // 1. Reparar incompatibilidades: eliminar el ítem de menor valor del par violado
+        for (const auto &incomp : instance.incompatibilities) {
+            int a = incomp.id_a, b = incomp.id_b;
+            if (ind.chromosome[a] && ind.chromosome[b]) {
+                if (instance.items[a].value <= instance.items[b].value)
+                    ind.chromosome[a] = false;
+                else
+                    ind.chromosome[b] = false;
+            }
+        }
+
+        // 2. Calcular peso/volumen actuales (tras reparar incompatibilidades)
         float total_weight = 0.0f;
         float total_volume = 0.0f;
-
-        std::vector<int> selected;
         for (size_t i = 0; i < ind.chromosome.size(); ++i) {
             if (ind.chromosome[i]) {
                 total_weight += instance.items[i].weight;
                 total_volume += instance.items[i].volume;
-                selected.push_back(i);
             }
         }
 
+        // 3. Reparar dependencias: añadir requerido si cabe, sino eliminar dependiente
+        for (const auto &[item_id, required_id] : instance.dependencies) {
+            if (ind.chromosome[item_id] && !ind.chromosome[required_id]) {
+                float w = instance.items[required_id].weight;
+                float v = instance.items[required_id].volume;
+                if (total_weight + w <= instance.knapsack.max_weight &&
+                    total_volume + v <= instance.knapsack.max_volume) {
+                    ind.chromosome[required_id] = true;
+                    total_weight += w;
+                    total_volume += v;
+                } else {
+                    ind.chromosome[item_id] = false;
+                    total_weight -= instance.items[item_id].weight;
+                    total_volume -= instance.items[item_id].volume;
+                }
+            }
+        }
+
+        // 4. Reparar capacidad: eliminar ítems aleatorios hasta satisfacer peso/volumen
         if (total_weight <= instance.knapsack.max_weight &&
             total_volume <= instance.knapsack.max_volume) {
             return;
         }
 
+        std::vector<int> selected;
+        for (size_t i = 0; i < ind.chromosome.size(); ++i) {
+            if (ind.chromosome[i]) selected.push_back(i);
+        }
         std::shuffle(selected.begin(), selected.end(), rng);
 
         for (int idx : selected) {
