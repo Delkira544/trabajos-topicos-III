@@ -14,6 +14,14 @@ namespace Mutation {
     // se comporta como BitFlip clásico.
     void BitFlipAsymmetric(Individual &ind, float mutation_rate,
                            const Instance &instance, std::mt19937 &rng);
+
+    // Mutación dirigida a violaciones soft: con probabilidad call_prob por
+    // individuo, recopila las violaciones activas (incompatibilidades y
+    // dependencias) y aplica UNA reparación al azar a UNA violación al azar.
+    // No es greedy (no fixea todo), no es determinista — sólo da al GA un
+    // sesgo hacia los genes específicamente involucrados en las violaciones.
+    void TargetedFix(Individual &ind, const Instance &instance,
+                     std::mt19937 &rng, float call_prob = 0.5f);
 }
 
 #endif

@@ -12,6 +12,55 @@ namespace Mutation {
         }
     }
 
+    void TargetedFix(Individual &ind, const Instance &instance,
+                     std::mt19937 &rng, float call_prob) {
+        // Decidir si "tocar" este individuo
+        std::bernoulli_distribution call(call_prob);
+        if (!call(rng)) return;
+
+        // 1) Recopilar todas las violaciones soft ACTIVAS
+        struct Violation {
+            int kind;  // 0 = incompatibilidad, 1 = dependencia
+            int a, b;  // genes involucrados
+        };
+        std::vector<Violation> violations;
+        violations.reserve(16);
+
+        for (const auto &inc : instance.incompatibilities) {
+            if (ind.chromosome[inc.id_a] && ind.chromosome[inc.id_b]) {
+                violations.push_back({0, inc.id_a, inc.id_b});
+            }
+        }
+        for (const auto &[item_id, req_id] : instance.dependencies) {
+            if (ind.chromosome[item_id] && !ind.chromosome[req_id]) {
+                violations.push_back({1, item_id, req_id});
+            }
+        }
+
+        if (violations.empty()) return;
+
+        // 2) Elegir UNA violación al azar y fixearla (de forma random tampoco
+        //    determinista: 50/50 entre las dos formas posibles de resolverla).
+        std::uniform_int_distribution<size_t> pick(0, violations.size() - 1);
+        const Violation &v = violations[pick(rng)];
+        std::bernoulli_distribution coin(0.5f);
+
+        if (v.kind == 0) {
+            // Incompatibilidad: deseleccionar uno de los dos al azar
+            int drop = coin(rng) ? v.a : v.b;
+            ind.chromosome[drop] = false;
+        } else {
+            // Dependencia: agregar el requerido O quitar el dependiente,
+            // a coin-flip. Si se agrega y rompe capacidad, BitFlipAsymmetric
+            // de la siguiente gen lo balanceará.
+            if (coin(rng)) {
+                ind.chromosome[v.b] = true;   // v.b = required_id
+            } else {
+                ind.chromosome[v.a] = false;  // v.a = item_id
+            }
+        }
+    }
+
     void BitFlipAsymmetric(Individual &ind, float mutation_rate,
                            const Instance &instance, std::mt19937 &rng) {
         // 1) Calcular si el individuo está sobre capacidad

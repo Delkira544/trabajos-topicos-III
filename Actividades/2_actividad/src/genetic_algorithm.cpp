@@ -94,9 +94,10 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
     best_ever_ = FindBest(population);
     gens_without_improvement_ = 0;
 
-    // Mejora #7 — preservar el top elite_fraction_ (10%) en vez de un único elite.
-    int n_elite = std::max(1,
-                           static_cast<int>(population_size * elite_fraction_));
+    // Mejora #7 — preservar el top elite_fraction_ (10%) en vez de un único
+    // elite.
+    int n_elite =
+        std::max(1, static_cast<int>(population_size * elite_fraction_));
 
     for (int gen = 0; gen < generations; ++gen) {
         // 1) Elitismo múltiple: ordenar y copiar top-N a la nueva generación.
@@ -128,10 +129,10 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
             int tournament_size = 5;
             int i = pair * 2;
 
-            Individual p1 = Selection::Tournament(
-                population, tournament_size, pair_rng);
-            Individual p2 = Selection::Tournament(
-                population, tournament_size, pair_rng);
+            Individual p1 =
+                Selection::Tournament(population, tournament_size, pair_rng);
+            Individual p2 =
+                Selection::Tournament(population, tournament_size, pair_rng);
 
             Individual c1, c2;
             // Mejora #4 — Uniform crossover con sesgo a no incluir.
@@ -140,6 +141,11 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
             // Mejora #5 — mutación asimétrica consciente de la capacidad.
             Mutation::BitFlipAsymmetric(c1, mutation_rate, instance, pair_rng);
             Mutation::BitFlipAsymmetric(c2, mutation_rate, instance, pair_rng);
+
+            // Mutación DIRIGIDA a violaciones soft: 50% prob por hijo,
+            // y si se activa, fixea UNA violación al azar (no greedy).
+            Mutation::TargetedFix(c1, instance, pair_rng, 0.5f);
+            Mutation::TargetedFix(c2, instance, pair_rng, 0.5f);
 
             children[i] = std::move(c1);
             if (i + 1 < children_needed) {
@@ -233,7 +239,8 @@ void GeneticAlgorithm::InjectDiversity(std::mt19937 &r) {
               [](const Individual &a, const Individual &b) {
                   return IsBetter(a, b);
               });
-    int n_replace = static_cast<int>(population_size * diversity_inject_fraction_);
+    int n_replace =
+        static_cast<int>(population_size * diversity_inject_fraction_);
     int start = population_size - n_replace;
     for (int i = start; i < population_size; ++i) {
         population[i] = CreateRandomIndividual(r);
@@ -292,8 +299,8 @@ void GeneticAlgorithm::Run() {
     best_ever_ = FindBest(population);
     gens_without_improvement_ = 0;
 
-    int n_elite = std::max(1,
-                           static_cast<int>(population_size * elite_fraction_));
+    int n_elite =
+        std::max(1, static_cast<int>(population_size * elite_fraction_));
 
     for (int gen = 0; gen < generations; ++gen) {
         // Mejora #7 — multi-elite: top-N preservado.
@@ -309,15 +316,20 @@ void GeneticAlgorithm::Run() {
             new_population.push_back(sorted_pop[i]);
         }
 
-        int tournament_size = 5;  // mejora #8
+        int tournament_size = 10; // mejora #8
         while (static_cast<int>(new_population.size()) < population_size) {
-            Individual p1 = Selection::Tournament(population, tournament_size, rng);
-            Individual p2 = Selection::Tournament(population, tournament_size, rng);
+            Individual p1 =
+                Selection::Tournament(population, tournament_size, rng);
+            Individual p2 =
+                Selection::Tournament(population, tournament_size, rng);
 
             Individual c1, c2;
-            Crossover::Uniform(p1, p2, c1, c2, rng, 0.45f);          // #4
+            Crossover::Uniform(p1, p2, c1, c2, rng, 0.45f);                // #4
             Mutation::BitFlipAsymmetric(c1, mutation_rate, instance, rng); // #5
             Mutation::BitFlipAsymmetric(c2, mutation_rate, instance, rng);
+            // Mutación dirigida a violaciones soft (probabilística, parcial)
+            Mutation::TargetedFix(c1, instance, rng, 0.5f);
+            Mutation::TargetedFix(c2, instance, rng, 0.5f);
 
             Fitness::Evaluate(c1, instance, gen, generations);
             Fitness::Evaluate(c2, instance, gen, generations);
