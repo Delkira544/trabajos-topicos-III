@@ -44,6 +44,12 @@ private:
     int   near_feasible_stall_limit_ = 250;
     int   gens_no_improve_total_ = 0;
 
+    // Early-stop por "factibilidad alcanzada + N gens de refinamiento":
+    // cuando best_ever_ se vuelve válido por primera vez, registramos la gen.
+    // 75 gens después salimos (independiente de mejora posterior).
+    int   gens_after_feasible_limit_ = 75;
+    int   first_feasible_gen_ = -1;
+
     void InitializeIslands();
     void Migrate();
     Individual FindBestOverall() const;

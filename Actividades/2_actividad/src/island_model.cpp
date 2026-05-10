@@ -333,6 +333,7 @@ void IslandModel::Run() {
     best_ever_ = FindBestOverall();
     gens_without_improvement_ = 0;
     gens_no_improve_total_ = 0;
+    first_feasible_gen_ = best_ever_.is_valid ? 0 : -1;
 
     for (int gen = 1; gen <= generations; ++gen) {
         for (int i = 0; i < num_islands; ++i) {
@@ -353,6 +354,15 @@ void IslandModel::Run() {
             gens_no_improve_total_++;
         }
 
+        // Registrar la primera generación factible.
+        if (first_feasible_gen_ < 0 && best_ever_.is_valid) {
+            first_feasible_gen_ = gen;
+            std::cout << "[FEASIBLE] gen " << gen
+                      << ": primera solución factible encontrada — "
+                      << gens_after_feasible_limit_
+                      << " gens más para refinar antes de salir\n";
+        }
+
         if (gens_without_improvement_ >= stagnation_limit_) {
             std::cout << "[STAGNATION] gen " << gen
                       << ": inyectando diversidad en todas las islas ("
@@ -364,18 +374,19 @@ void IslandModel::Run() {
 
         RecordStats(gen);
 
-        if (HasConverged() && best_ever_.is_valid) {
-            std::cout << "Convergencia detectada en generacion " << gen << "\n";
+        // Early-stop por factibilidad + ventana de refinamiento.
+        if (first_feasible_gen_ >= 0 &&
+            (gen - first_feasible_gen_) >= gens_after_feasible_limit_) {
+            std::cout << "[EARLY-STOP] gen " << gen
+                      << ": factible desde gen " << first_feasible_gen_
+                      << " (+" << gens_after_feasible_limit_
+                      << " gens de refinamiento) — finalizando\n";
             break;
         }
 
-        int n_viol = CountTotalViolations(best_ever_);
-        if (n_viol <= near_feasible_max_violations_ &&
-            gens_no_improve_total_ >= near_feasible_stall_limit_) {
-            std::cout << "[EARLY-STOP] gen " << gen
-                      << ": " << n_viol << " violaciones residuales y "
-                      << gens_no_improve_total_
-                      << " gens sin mejora — abortando\n";
+        // Convergencia clásica (fallback)
+        if (HasConverged() && best_ever_.is_valid) {
+            std::cout << "Convergencia detectada en generacion " << gen << "\n";
             break;
         }
     }
@@ -394,6 +405,7 @@ void IslandModel::RunParallel(int num_threads) {
     best_ever_ = FindBestOverall();
     gens_without_improvement_ = 0;
     gens_no_improve_total_ = 0;
+    first_feasible_gen_ = best_ever_.is_valid ? 0 : -1;
 
     for (int gen = 1; gen <= generations; ++gen) {
         // Cada iteración accede sólo a islands[i] e island_rngs[i] → sin race.
@@ -421,6 +433,15 @@ void IslandModel::RunParallel(int num_threads) {
             gens_no_improve_total_++;
         }
 
+        // Registrar la primera generación factible.
+        if (first_feasible_gen_ < 0 && best_ever_.is_valid) {
+            first_feasible_gen_ = gen;
+            std::cout << "[FEASIBLE] gen " << gen
+                      << ": primera solución factible encontrada — "
+                      << gens_after_feasible_limit_
+                      << " gens más para refinar antes de salir\n";
+        }
+
         if (gens_without_improvement_ >= stagnation_limit_) {
             std::cout << "[STAGNATION] gen " << gen
                       << ": inyectando diversidad en todas las islas ("
@@ -432,18 +453,19 @@ void IslandModel::RunParallel(int num_threads) {
 
         RecordStats(gen);
 
-        if (HasConverged() && best_ever_.is_valid) {
-            std::cout << "Convergencia detectada en generacion " << gen << "\n";
+        // Early-stop por factibilidad + ventana de refinamiento.
+        if (first_feasible_gen_ >= 0 &&
+            (gen - first_feasible_gen_) >= gens_after_feasible_limit_) {
+            std::cout << "[EARLY-STOP] gen " << gen
+                      << ": factible desde gen " << first_feasible_gen_
+                      << " (+" << gens_after_feasible_limit_
+                      << " gens de refinamiento) — finalizando\n";
             break;
         }
 
-        int n_viol = CountTotalViolations(best_ever_);
-        if (n_viol <= near_feasible_max_violations_ &&
-            gens_no_improve_total_ >= near_feasible_stall_limit_) {
-            std::cout << "[EARLY-STOP] gen " << gen
-                      << ": " << n_viol << " violaciones residuales y "
-                      << gens_no_improve_total_
-                      << " gens sin mejora — abortando\n";
+        // Convergencia clásica (fallback)
+        if (HasConverged() && best_ever_.is_valid) {
+            std::cout << "Convergencia detectada en generacion " << gen << "\n";
             break;
         }
     }

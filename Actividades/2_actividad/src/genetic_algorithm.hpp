@@ -125,6 +125,12 @@ class GeneticAlgorithm {
     int near_feasible_stall_limit_ = 250;
     int gens_no_improve_total_ = 0;
 
+    // Early-stop por "factibilidad alcanzada + N gens de refinamiento":
+    // Cuando best_ever_ se vuelve válido por primera vez, registramos la gen.
+    // 75 generaciones después (independientemente de si mejora o no), salimos.
+    int gens_after_feasible_limit_ = 75;
+    int first_feasible_gen_ = -1; // -1 = aún no encontrada
+
     void Initialize_Population();
     Individual FindBest(const std::vector<Individual> &pop) const;
     std::mt19937 get_rng_for_thread(int thread_id) const;

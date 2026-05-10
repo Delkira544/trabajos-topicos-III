@@ -101,6 +101,7 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
     best_ever_ = FindBest(population);
     gens_without_improvement_ = 0;
     gens_no_improve_total_ = 0;
+    first_feasible_gen_ = best_ever_.is_valid ? 0 : -1;
 
     // Mejora #7 — preservar el top elite_fraction_ (10%) en vez de un único
     // elite.
@@ -198,6 +199,15 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
             gens_no_improve_total_++;
         }
 
+        // Registrar la primera generación en que el mejor se volvió factible.
+        if (first_feasible_gen_ < 0 && best_ever_.is_valid) {
+            first_feasible_gen_ = gen;
+            std::cout << "[FEASIBLE] gen " << gen
+                      << ": primera solución factible encontrada — "
+                      << gens_after_feasible_limit_
+                      << " gens más para refinar antes de salir\n";
+        }
+
         // Mejora #6 — anti-estancamiento (resetea sólo gens_without_improvement_).
         if (gens_without_improvement_ >= stagnation_limit_) {
             std::cout << "[STAGNATION] gen " << gen
@@ -210,21 +220,20 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
 
         RecordStats(gen);
 
-        // Early-stop por convergencia clásica (con válido total)
-        if (HasConverged() && best_ever_.is_valid) {
-            std::cout << "Convergencia detectada en generacion " << gen << "\n";
+        // Early-stop por factibilidad + ventana de refinamiento.
+        // Cuando best_ever_ se vuelve válido y han pasado N gens, salimos.
+        if (first_feasible_gen_ >= 0 &&
+            (gen - first_feasible_gen_) >= gens_after_feasible_limit_) {
+            std::cout << "[EARLY-STOP] gen " << gen
+                      << ": factible desde gen " << first_feasible_gen_
+                      << " (+" << gens_after_feasible_limit_
+                      << " gens de refinamiento) — finalizando\n";
             break;
         }
 
-        // Early-stop inteligente: cerca de factibilidad y estancado.
-        // Cuenta TOTAL de violaciones (peso/vol/cat/incomp/dep) en best_ever.
-        int n_viol = CountTotalViolations(best_ever_);
-        if (n_viol <= near_feasible_max_violations_ &&
-            gens_no_improve_total_ >= near_feasible_stall_limit_) {
-            std::cout << "[EARLY-STOP] gen " << gen
-                      << ": " << n_viol << " violaciones residuales y "
-                      << gens_no_improve_total_
-                      << " gens sin mejora — abortando para no desperdiciar tiempo\n";
+        // Early-stop por convergencia clásica (fallback)
+        if (HasConverged() && best_ever_.is_valid) {
+            std::cout << "Convergencia detectada en generacion " << gen << "\n";
             break;
         }
     }
@@ -373,6 +382,7 @@ void GeneticAlgorithm::Run() {
     best_ever_ = FindBest(population);
     gens_without_improvement_ = 0;
     gens_no_improve_total_ = 0;
+    first_feasible_gen_ = best_ever_.is_valid ? 0 : -1;
 
     int n_elite =
         std::max(1, static_cast<int>(population_size * elite_fraction_));
@@ -427,6 +437,15 @@ void GeneticAlgorithm::Run() {
             gens_no_improve_total_++;
         }
 
+        // Registrar la primera generación factible.
+        if (first_feasible_gen_ < 0 && best_ever_.is_valid) {
+            first_feasible_gen_ = gen;
+            std::cout << "[FEASIBLE] gen " << gen
+                      << ": primera solución factible encontrada — "
+                      << gens_after_feasible_limit_
+                      << " gens más para refinar antes de salir\n";
+        }
+
         // Mejora #6 — anti-estancamiento (resetea sólo gens_without_improvement_).
         if (gens_without_improvement_ >= stagnation_limit_) {
             std::cout << "[STAGNATION] gen " << gen
@@ -437,19 +456,19 @@ void GeneticAlgorithm::Run() {
 
         RecordStats(gen);
 
-        if (HasConverged() && best_ever_.is_valid) {
-            std::cout << "Convergencia detectada en generacion " << gen << "\n";
+        // Early-stop por factibilidad + ventana de refinamiento.
+        if (first_feasible_gen_ >= 0 &&
+            (gen - first_feasible_gen_) >= gens_after_feasible_limit_) {
+            std::cout << "[EARLY-STOP] gen " << gen
+                      << ": factible desde gen " << first_feasible_gen_
+                      << " (+" << gens_after_feasible_limit_
+                      << " gens de refinamiento) — finalizando\n";
             break;
         }
 
-        // Early-stop inteligente: cerca de factibilidad y estancado.
-        int n_viol = CountTotalViolations(best_ever_);
-        if (n_viol <= near_feasible_max_violations_ &&
-            gens_no_improve_total_ >= near_feasible_stall_limit_) {
-            std::cout << "[EARLY-STOP] gen " << gen
-                      << ": " << n_viol << " violaciones residuales y "
-                      << gens_no_improve_total_
-                      << " gens sin mejora — abortando para no desperdiciar tiempo\n";
+        // Convergencia clásica (fallback)
+        if (HasConverged() && best_ever_.is_valid) {
+            std::cout << "Convergencia detectada en generacion " << gen << "\n";
             break;
         }
     }
