@@ -54,7 +54,8 @@ void Benchmark::Run(const BenchmarkConfig& config) {
                   "BestFeasibleValue,BestFitness,Feasible%,Speedup,Efficiency\n";
     }
 
-    std::ofstream detailed_report("results/detailed_benchmark.csv");
+    std::string detailed_filename = "results/detailed_benchmark_" + config.variant + "_" + std::to_string(config.config_id) + ".csv";
+    std::ofstream detailed_report(detailed_filename);
     if (detailed_report.is_open()) {
         detailed_report << "Instance,Variant,ConfigID,Threads,Repetition,Seed,"
                            "Time(s),BestFeasibleValue,BestFitness,Feasible%\n";

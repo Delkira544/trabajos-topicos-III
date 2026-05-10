@@ -84,16 +84,16 @@ large: all
 #   results/<nombre>_bench_standard_<config>.csv
 #   results/<nombre>_bench_islands_<config>.csv
 benchmark: all
-	@mkdir -p results
 	$(eval BENCH_ARGS := $(filter-out $@,$(MAKECMDGOALS)))
 	$(eval BENCH_CONFIG := $(word 1,$(BENCH_ARGS)))
 	$(eval BENCH_NAME := $(word 2,$(BENCH_ARGS)))
-	@if [ -z "$(BENCH_CONFIG)" ] || [ -z "$(BENCH_NAME)" ]; then \
-		echo "Uso: make benchmark <config> <nombre>"; \
-		echo "  ej: make benchmark 1 experimento1"; \
-		echo "  config ∈ {1,2,3,4}"; \
-		exit 1; \
-	fi
+	$(if $(BENCH_CONFIG),,$(error Uso: make benchmark <config> <nombre>. ej: make benchmark 1 experimento1))
+	$(if $(BENCH_NAME),,$(error Uso: make benchmark <config> <nombre>. ej: make benchmark 1 experimento1))
+ifeq ($(OS), Windows_NT)
+	@if not exist results mkdir results
+else
+	@mkdir -p results
+endif
 	@echo ""
 	@echo "===================================================="
 	@echo " Benchmark — config=$(BENCH_CONFIG)  nombre=$(BENCH_NAME)"
