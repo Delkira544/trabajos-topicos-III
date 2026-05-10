@@ -89,7 +89,11 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
 
     Initialize_Population();
 
-#pragma omp parallel for schedule(static)
+    // Evaluación paralela de la población inicial.
+    // shared: population (lectura/escritura por índices disjuntos), instance (RO).
+    // private: i (índice de iteración).
+#pragma omp parallel for schedule(static) \
+    default(none) shared(population, instance) firstprivate(generations)
     for (int i = 0; i < population_size; ++i) {
         Fitness::Evaluate(population[i], instance, 0, generations);
     }
@@ -124,7 +128,15 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
         int num_pairs = (children_needed + 1) / 2;
         std::vector<Individual> children(children_needed);
 
-#pragma omp parallel for schedule(static)
+        // Cada iteración escribe en children[i] y children[i+1] (índices
+        // disjuntos por par), lee population/instance, y crea su propio RNG
+        // local → sin race conditions.
+        // shared: population, instance, children (escritura por índice).
+        // firstprivate: contadores y constantes de la iteración.
+#pragma omp parallel for schedule(static) \
+    default(none) \
+    shared(population, instance, children) \
+    firstprivate(seed, gen, num_pairs, children_needed, mutation_rate)
         for (int pair = 0; pair < num_pairs; ++pair) {
             std::mt19937 pair_rng(static_cast<uint32_t>(seed) +
                                   static_cast<uint32_t>(gen) * 10000u +
@@ -165,7 +177,11 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
         }
 
         // Solo evaluamos los hijos (los elites ya están evaluados).
-#pragma omp parallel for schedule(static)
+        // shared: new_population (escritura por índice disjunto), instance (RO).
+#pragma omp parallel for schedule(static) \
+    default(none) \
+    shared(new_population, instance) \
+    firstprivate(n_elite, population_size, gen, generations)
         for (int i = n_elite; i < population_size; ++i) {
             Fitness::Evaluate(new_population[i], instance, gen, generations);
         }

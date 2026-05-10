@@ -244,7 +244,14 @@ void IslandModel::RunParallel(int num_threads) {
     RecordStats(0);
     
     for (int gen = 1; gen <= generations; ++gen) {
-        #pragma omp parallel for schedule(dynamic)
+        // Cada iteración trabaja sobre islands[i] e island_rngs[i] exclusivos
+        // → sin race conditions entre hilos.
+        // shared: islands, island_rngs, instance (esta última solo RO).
+        // firstprivate: parámetros constantes durante la generación.
+        #pragma omp parallel for schedule(dynamic) \
+            default(none) \
+            shared(islands, island_rngs, instance) \
+            firstprivate(num_islands, population_per_island, mutation_rate, gen, generations)
         for (int i = 0; i < num_islands; ++i) {
             std::vector<Individual> new_island;
             new_island.reserve(population_per_island);
