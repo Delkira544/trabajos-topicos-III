@@ -78,24 +78,31 @@ namespace Fitness {
             }
         }
 
-        // 5. Normalización de cada componente a [0,1] usando Pᵢ_max real
+        // 5. Normalización de cada componente a [0,1]
 
         // valor_norm = Σvᵢxᵢ / Σvᵢ  (máximo teórico = suma de todos los valores)
         float norm_value = (instance.max_value > 0.0f)
                                ? (total_value / instance.max_value)
                                : 0.0f;
 
-        // P_peso / P_peso_max  donde P_peso_max = Σpesos_todos − max_weight
+        // Mejora #1 — penalización CUADRÁTICA sobre la capacidad para hard
+        // constraints. Normalizamos por la CAPACIDAD (no por el exceso máx)
+        // y amplificamos: norm = min(1, ratio² · 100)
+        //   1% exceso → 0.01;  2.5% → 0.0625;  5% → 0.25;  ≥10% → 1.0
+        // Así un exceso pequeño ya genera presión significativa contra el
+        // valor objetivo, en vez de quedar diluido entre miles de pesos.
+        constexpr float HARD_AMPLIFIER = 100.0f;
+        float ratio_peso = (instance.knapsack.max_weight > 0.0f)
+                               ? (exceso_peso / instance.knapsack.max_weight)
+                               : 0.0f;
         float norm_exceso_peso =
-            (instance.max_excess_weight > 0.0f)
-                ? std::min(1.0f, exceso_peso / instance.max_excess_weight)
-                : 0.0f;
+            std::min(1.0f, ratio_peso * ratio_peso * HARD_AMPLIFIER);
 
-        // P_volumen / P_volumen_max  donde P_volumen_max = Σvolúmenes_todos − max_volume
+        float ratio_volumen = (instance.knapsack.max_volume > 0.0f)
+                                  ? (exceso_volumen / instance.knapsack.max_volume)
+                                  : 0.0f;
         float norm_exceso_volumen =
-            (instance.max_excess_volume > 0.0f)
-                ? std::min(1.0f, exceso_volumen / instance.max_excess_volume)
-                : 0.0f;
+            std::min(1.0f, ratio_volumen * ratio_volumen * HARD_AMPLIFIER);
 
         // P_cat / n_categorias  (cada categoría puede violarse una vez → Pᵢ_max = n_cat)
         float norm_errores_categoria =
@@ -130,108 +137,14 @@ namespace Fitness {
         ind.penalty  = violacion_norm;
         ind.fitness  = instance.penalties.obj_weight * norm_value
                      - instance.penalties.pen_weight * violacion_norm;
-        ind.is_valid = (violacion_norm < 1e-6f);
-    }
 
-    void Repair(Individual &ind, const Instance &instance, std::mt19937 &rng) {
-        (void)rng; // ya no se usa: la eliminación aleatoria fue reemplazada por greedy
-        // 1. Reparar incompatibilidades: eliminar el ítem de menor valor del par violado
-        for (const auto &incomp : instance.incompatibilities) {
-            int a = incomp.id_a, b = incomp.id_b;
-            if (ind.chromosome[a] && ind.chromosome[b]) {
-                if (instance.items[a].value <= instance.items[b].value)
-                    ind.chromosome[a] = false;
-                else
-                    ind.chromosome[b] = false;
-            }
-        }
-
-        // 2. Calcular peso/volumen actuales (tras reparar incompatibilidades)
-        float total_weight = 0.0f;
-        float total_volume = 0.0f;
-        for (size_t i = 0; i < ind.chromosome.size(); ++i) {
-            if (ind.chromosome[i]) {
-                total_weight += instance.items[i].weight;
-                total_volume += instance.items[i].volume;
-            }
-        }
-
-        // 3. Reparar dependencias: añadir requerido si cabe, sino eliminar dependiente
-        for (const auto &[item_id, required_id] : instance.dependencies) {
-            if (ind.chromosome[item_id] && !ind.chromosome[required_id]) {
-                float w = instance.items[required_id].weight;
-                float v = instance.items[required_id].volume;
-                if (total_weight + w <= instance.knapsack.max_weight &&
-                    total_volume + v <= instance.knapsack.max_volume) {
-                    ind.chromosome[required_id] = true;
-                    total_weight += w;
-                    total_volume += v;
-                } else {
-                    ind.chromosome[item_id] = false;
-                    total_weight -= instance.items[item_id].weight;
-                    total_volume -= instance.items[item_id].volume;
-                }
-            }
-        }
-
-        // 4. Reparar capacidad: eliminación greedy por peor ratio valor/(peso+volumen)
-        //    Iterar junto con dependencias hasta estabilizar (máx. 5 rondas)
-        for (int pass = 0; pass < 5; ++pass) {
-            // 4a. Greedy capacity: eliminar ítems con peor ratio primero
-            if (total_weight > instance.knapsack.max_weight ||
-                total_volume > instance.knapsack.max_volume) {
-
-                std::vector<int> selected;
-                for (size_t i = 0; i < ind.chromosome.size(); ++i) {
-                    if (ind.chromosome[i]) selected.push_back(i);
-                }
-                // Ordenar ascendente por ratio valor/(peso+volumen+1): peores primero
-                std::sort(selected.begin(), selected.end(), [&](int a, int b) {
-                    float ra = instance.items[a].value /
-                               (instance.items[a].weight + instance.items[a].volume + 1.0f);
-                    float rb = instance.items[b].value /
-                               (instance.items[b].weight + instance.items[b].volume + 1.0f);
-                    return ra < rb;
-                });
-
-                for (int idx : selected) {
-                    if (total_weight <= instance.knapsack.max_weight &&
-                        total_volume <= instance.knapsack.max_volume) {
-                        break;
-                    }
-                    ind.chromosome[idx] = false;
-                    total_weight -= instance.items[idx].weight;
-                    total_volume -= instance.items[idx].volume;
-                }
-            }
-
-            // 4b. Re-reparar dependencias rotas por la eliminación anterior
-            bool changed = false;
-            for (const auto &[item_id, required_id] : instance.dependencies) {
-                if (ind.chromosome[item_id] && !ind.chromosome[required_id]) {
-                    float w = instance.items[required_id].weight;
-                    float v = instance.items[required_id].volume;
-                    if (total_weight + w <= instance.knapsack.max_weight &&
-                        total_volume + v <= instance.knapsack.max_volume) {
-                        ind.chromosome[required_id] = true;
-                        total_weight += w;
-                        total_volume += v;
-                    } else {
-                        ind.chromosome[item_id] = false;
-                        total_weight -= instance.items[item_id].weight;
-                        total_volume -= instance.items[item_id].volume;
-                    }
-                    changed = true;
-                }
-            }
-
-            // Si no hubo cambios en dependencias y capacidad ok, terminar
-            if (!changed &&
-                total_weight <= instance.knapsack.max_weight &&
-                total_volume <= instance.knapsack.max_volume) {
-                break;
-            }
-        }
+        // hard_feasible: peso y volumen ambos OK (sin tocar las soft).
+        // is_valid: TODAS las restricciones (hard + soft) OK.
+        ind.hard_feasible = (exceso_peso <= 0.0f) && (exceso_volumen <= 0.0f);
+        ind.is_valid = ind.hard_feasible
+                       && (errores_categoria == 0)
+                       && (errores_incompatibilidad == 0)
+                       && (errores_dependencia == 0);
     }
 
     void PrintConstraintDetails(const Individual &ind,

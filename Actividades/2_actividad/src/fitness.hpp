@@ -8,7 +8,6 @@
 namespace Fitness {
     void Evaluate(Individual &ind, const Instance &instance, int generation,
                   int total_generations);
-    void Repair(Individual &ind, const Instance &instance, std::mt19937 &rng);
     void PrintConstraintDetails(const Individual &ind,
                                 const Instance &instance);
 } // namespace Fitness

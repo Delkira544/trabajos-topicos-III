@@ -31,6 +31,7 @@ OBJS      = $(patsubst $(SRC_DIR)/%.cpp, $(BUILD_DIR)/%.o, $(SRCS))
 # 3. REGLAS PRINCIPALES
 GENERATIONS = 700
 POPULATION = 120
+POPULATION_LARGE = 250   # mejora #9 — large requiere más exploración (10000-D)
 THEADS = 8
 SEED = 132512
 
@@ -68,7 +69,7 @@ medium: all
 
 large: all
 	./$(TARGET) --instance data/large \
-	   	        --population $(POPULATION) \
+	   	        --population $(POPULATION_LARGE) \
 				--generations $(GENERATIONS) \
 				--threads $(THEADS)  \
 				--seed $(SEED) \

@@ -39,21 +39,22 @@ CAPACITY_RATIO = 0.40
 #   small (100):  5 incompatibilidades,  10 dependencias
 #   medium (1000): 50 incompatibilidades, 100 dependencias
 #   large (10000): 500 incompatibilidades, 1000 dependencias
-INCOMPATIBILITY_RATIO = 0.05
-DEPENDENCY_RATIO = 0.03
+INCOMPATIBILITY_RATIO = 0.03
+DEPENDENCY_RATIO = 0.02
 
 
 def calculate_penalties(n_items: int) -> dict:
     """
-    Calcula penalizaciones usando el Método de Combinación Convexa.
-    La suma de todos los pesos es exactamente 1.0 (100%).
+    Pesos de cada restricción dentro de violacion_norm (combinación convexa,
+    Σ = 1.0). Mejora #2: las restricciones HARD (peso/volumen) llevan el
+    mayor peso porque son obligatorias; las soft se reparten el resto.
     """
     return {
-        "alpha": 0.10,  # 30% de importancia al Exceso de Peso
-        "beta": 0.10,  # 20% de importancia al Exceso de Volumen
-        "gamma": 0.20,  # 10% de importancia a las Categorías
-        "delta": 0.30,  # 20% de importancia a las Incompatibilidades
-        "epsilon": 0.30,  # 20% de importancia a las Dependencias
+        "alpha": 0.30,  # exceso de peso (HARD)
+        "beta": 0.30,  # exceso de volumen (HARD)
+        "gamma": 0.05,  # categorías
+        "delta": 0.20,  # incompatibilidades
+        "epsilon": 0.15,  # dependencias
     }
 
 
