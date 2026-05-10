@@ -27,7 +27,8 @@ struct Incompatibility {
     int id_b;
 };
 
-using DependencyMap = std::vector<std::pair<int, int>>; // (id_item, id_requerido)
+using DependencyMap =
+    std::vector<std::pair<int, int>>; // (id_item, id_requerido)
 
 struct KnapsackConfig {
     float max_weight;
@@ -39,7 +40,7 @@ struct PenaltyConfig {
     // Por defecto las restricciones HARD (peso, volumen) tienen el mayor peso
     // dentro de la violación normalizada.
     float alpha = 0.30f;   // w₁: exceso de peso (HARD)
-    float beta  = 0.30f;   // w₂: exceso de volumen (HARD)
+    float beta = 0.30f;    // w₂: exceso de volumen (HARD)
     float gamma = 0.05f;   // w₃: errores de categoría
     float delta = 0.20f;   // w₄: incompatibilidades
     float epsilon = 0.15f; // w₅: dependencias
@@ -64,9 +65,9 @@ struct Instance {
 struct Individual {
     std::vector<bool> chromosome;
     float fitness;
-    float penalty;       // violacion_norm ∈ [0,1]: 0 = sin violaciones
-    bool is_valid;       // todas las restricciones (hard + soft) satisfechas
-    bool hard_feasible;  // peso y volumen dentro de capacidad
+    float penalty;      // violacion_norm ∈ [0,1]: 0 = sin violaciones
+    bool is_valid;      // todas las restricciones (hard + soft) satisfechas
+    bool hard_feasible; // peso y volumen dentro de capacidad
 
     Individual()
         : fitness(0.0f), penalty(1.0f), is_valid(false), hard_feasible(false) {
@@ -112,10 +113,17 @@ class GeneticAlgorithm {
     // Mejora #7 — elitismo del 10% del top (en vez de un único campeón)
     float elite_fraction_ = 0.10f;
     // Mejora #6 — inyección de diversidad ante estancamiento prolongado
-    int   stagnation_limit_ = 50;
+    int stagnation_limit_ = 50;
     float diversity_inject_fraction_ = 0.30f;
-    int   gens_without_improvement_ = 0;
+    int gens_without_improvement_ = 0; // resetea con injection
     Individual best_ever_;
+
+    // Early-stopping inteligente: si el mejor está cerca de factibilidad
+    // (≤ N violaciones totales) y no mejora en M gens, abortar.
+    // Este contador NO se resetea al inyectar diversidad — sólo al mejorar.
+    int near_feasible_max_violations_ = 0;
+    int near_feasible_stall_limit_ = 250;
+    int gens_no_improve_total_ = 0;
 
     void Initialize_Population();
     Individual FindBest(const std::vector<Individual> &pop) const;
@@ -124,6 +132,7 @@ class GeneticAlgorithm {
     bool HasConverged() const;
     Individual CreateRandomIndividual(std::mt19937 &r) const;
     void InjectDiversity(std::mt19937 &r);
+    int CountTotalViolations(const Individual &ind) const;
 
   public:
     GeneticAlgorithm(const Instance &instance, int population_size,

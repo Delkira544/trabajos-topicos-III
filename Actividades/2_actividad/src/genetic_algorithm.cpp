@@ -5,6 +5,9 @@
 #include <iostream>
 #include <numeric>
 #include <random>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <omp.h>
 
 #include "crossover.hpp"
@@ -93,6 +96,7 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
 
     best_ever_ = FindBest(population);
     gens_without_improvement_ = 0;
+    gens_no_improve_total_ = 0;
 
     // Mejora #7 — preservar el top elite_fraction_ (10%) en vez de un único
     // elite.
@@ -172,11 +176,13 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
         if (IsBetter(current_best, best_ever_)) {
             best_ever_ = current_best;
             gens_without_improvement_ = 0;
+            gens_no_improve_total_ = 0;
         } else {
             gens_without_improvement_++;
+            gens_no_improve_total_++;
         }
 
-        // Mejora #6 — anti-estancamiento.
+        // Mejora #6 — anti-estancamiento (resetea sólo gens_without_improvement_).
         if (gens_without_improvement_ >= stagnation_limit_) {
             std::cout << "[STAGNATION] gen " << gen
                       << ": inyectando diversidad ("
@@ -188,8 +194,21 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
 
         RecordStats(gen);
 
+        // Early-stop por convergencia clásica (con válido total)
         if (HasConverged() && best_ever_.is_valid) {
             std::cout << "Convergencia detectada en generacion " << gen << "\n";
+            break;
+        }
+
+        // Early-stop inteligente: cerca de factibilidad y estancado.
+        // Cuenta TOTAL de violaciones (peso/vol/cat/incomp/dep) en best_ever.
+        int n_viol = CountTotalViolations(best_ever_);
+        if (n_viol <= near_feasible_max_violations_ &&
+            gens_no_improve_total_ >= near_feasible_stall_limit_) {
+            std::cout << "[EARLY-STOP] gen " << gen
+                      << ": " << n_viol << " violaciones residuales y "
+                      << gens_no_improve_total_
+                      << " gens sin mejora — abortando para no desperdiciar tiempo\n";
             break;
         }
     }
@@ -248,6 +267,45 @@ void GeneticAlgorithm::InjectDiversity(std::mt19937 &r) {
     }
 }
 
+int GeneticAlgorithm::CountTotalViolations(const Individual &ind) const {
+    int total = 0;
+
+    float total_weight = 0.0f, total_volume = 0.0f;
+    std::unordered_map<std::string, int> category_counts;
+    std::unordered_set<int> selected_ids;
+
+    for (size_t i = 0; i < ind.chromosome.size(); ++i) {
+        if (ind.chromosome[i]) {
+            const Item &item = instance.items[i];
+            total_weight  += item.weight;
+            total_volume  += item.volume;
+            category_counts[item.category]++;
+            selected_ids.insert(item.id);
+        }
+    }
+
+    if (total_weight > instance.knapsack.max_weight) total++;
+    if (total_volume > instance.knapsack.max_volume) total++;
+
+    for (const auto &[cat_name, rule] : instance.category_rules) {
+        int count = category_counts.count(cat_name)
+                        ? category_counts.at(cat_name) : 0;
+        if (count < rule.min || count > rule.max) total++;
+    }
+
+    for (const auto &inc : instance.incompatibilities) {
+        if (selected_ids.count(inc.id_a) && selected_ids.count(inc.id_b))
+            total++;
+    }
+
+    for (const auto &[item_id, req_id] : instance.dependencies) {
+        if (selected_ids.count(item_id) && !selected_ids.count(req_id))
+            total++;
+    }
+
+    return total;
+}
+
 void GeneticAlgorithm::View_Population() {
     std::cout << "\n=== Población (" << population.size()
               << " individuos) ===\n";
@@ -298,6 +356,7 @@ void GeneticAlgorithm::Run() {
 
     best_ever_ = FindBest(population);
     gens_without_improvement_ = 0;
+    gens_no_improve_total_ = 0;
 
     int n_elite =
         std::max(1, static_cast<int>(population_size * elite_fraction_));
@@ -346,11 +405,13 @@ void GeneticAlgorithm::Run() {
         if (IsBetter(current_best, best_ever_)) {
             best_ever_ = current_best;
             gens_without_improvement_ = 0;
+            gens_no_improve_total_ = 0;
         } else {
             gens_without_improvement_++;
+            gens_no_improve_total_++;
         }
 
-        // Mejora #6 — anti-estancamiento.
+        // Mejora #6 — anti-estancamiento (resetea sólo gens_without_improvement_).
         if (gens_without_improvement_ >= stagnation_limit_) {
             std::cout << "[STAGNATION] gen " << gen
                       << ": inyectando diversidad\n";
@@ -362,6 +423,17 @@ void GeneticAlgorithm::Run() {
 
         if (HasConverged() && best_ever_.is_valid) {
             std::cout << "Convergencia detectada en generacion " << gen << "\n";
+            break;
+        }
+
+        // Early-stop inteligente: cerca de factibilidad y estancado.
+        int n_viol = CountTotalViolations(best_ever_);
+        if (n_viol <= near_feasible_max_violations_ &&
+            gens_no_improve_total_ >= near_feasible_stall_limit_) {
+            std::cout << "[EARLY-STOP] gen " << gen
+                      << ": " << n_viol << " violaciones residuales y "
+                      << gens_no_improve_total_
+                      << " gens sin mejora — abortando para no desperdiciar tiempo\n";
             break;
         }
     }
