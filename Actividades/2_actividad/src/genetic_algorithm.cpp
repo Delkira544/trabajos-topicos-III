@@ -102,49 +102,39 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
 
         int children_needed =
             population_size - static_cast<int>(new_population.size());
-        std::vector<Individual> children;
-        children.reserve(children_needed);
 
-        int actual_threads = num_threads;
-        if (actual_threads <= 0) {
-            actual_threads = 1;
-        }
+        // RNG por par (no por hilo): cada par i siempre usa la misma semilla
+        // sin importar cuántos hilos ejecuten el loop → resultados reproducibles.
+        int num_pairs = (children_needed + 1) / 2;
+        std::vector<Individual> children(children_needed);
 
-        std::vector<std::vector<Individual>> all_children(actual_threads);
-
-#pragma omp parallel
-        {
-            int tid = omp_get_thread_num();
-            std::mt19937 thread_rng = get_rng_for_thread(tid);
+#pragma omp parallel for schedule(static)
+        for (int pair = 0; pair < num_pairs; ++pair) {
+            std::mt19937 pair_rng(static_cast<uint32_t>(seed) +
+                                  static_cast<uint32_t>(gen) * 10000u +
+                                  static_cast<uint32_t>(pair));
             int tournament_size = 3;
+            int i = pair * 2;
 
-#pragma omp for schedule(static)
-            for (int i = 0; i < children_needed; i += 2) {
-                Individual p1 = Selection::Tournament(
-                    population, tournament_size, thread_rng);
-                Individual p2 = Selection::Tournament(
-                    population, tournament_size, thread_rng);
+            Individual p1 = Selection::Tournament(
+                population, tournament_size, pair_rng);
+            Individual p2 = Selection::Tournament(
+                population, tournament_size, pair_rng);
 
-                Individual c1, c2;
-                Crossover::SinglePoint(p1, p2, c1, c2, thread_rng);
+            Individual c1, c2;
+            Crossover::SinglePoint(p1, p2, c1, c2, pair_rng);
 
-                Mutation::BitFlip(c1, mutation_rate, thread_rng);
-                Mutation::BitFlip(c2, mutation_rate, thread_rng);
+            Mutation::BitFlip(c1, mutation_rate, pair_rng);
+            Mutation::BitFlip(c2, mutation_rate, pair_rng);
 
-                all_children[tid].push_back(c1);
-                if (i + 1 < children_needed) {
-                    all_children[tid].push_back(c2);
-                }
+            children[i] = std::move(c1);
+            if (i + 1 < children_needed) {
+                children[i + 1] = std::move(c2);
             }
         }
 
-        for (int t = 0; t < actual_threads; ++t) {
-            children.insert(children.end(), all_children[t].begin(),
-                            all_children[t].end());
-        }
-
-        for (int i = 0; i < children_needed; ++i) {
-            new_population.push_back(children[i]);
+        for (auto& child : children) {
+            new_population.push_back(std::move(child));
         }
 
 #pragma omp parallel for schedule(static)
