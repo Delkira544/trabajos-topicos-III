@@ -173,6 +173,15 @@ void IslandModel::RecordStats(int gen) {
     stat.avg_fitness = total_fitness / total_pop;
     stat.best_is_valid = best_overall.is_valid;
 
+    float sq_sum = 0.0f;
+    for (int i = 0; i < num_islands; ++i) {
+        for (const auto &ind : islands[i]) {
+            float diff = ind.fitness - stat.avg_fitness;
+            sq_sum += diff * diff;
+        }
+    }
+    stat.std_fitness = std::sqrt(sq_sum / total_pop);
+
     if (stats_.empty()) {
         stat.convergence_delta = 0.0f;
     } else {

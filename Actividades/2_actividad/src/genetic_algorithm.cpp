@@ -53,6 +53,13 @@ void GeneticAlgorithm::RecordStats(int gen) {
     gen_stats.worst_fitness = worst;
     gen_stats.valid_count = valid;
 
+    float sq_sum = 0.0f;
+    for (const auto &ind : population) {
+        float diff = ind.fitness - gen_stats.avg_fitness;
+        sq_sum += diff * diff;
+    }
+    gen_stats.std_fitness = std::sqrt(sq_sum / population.size());
+
     if (gen > 0) {
         gen_stats.convergence_delta =
             std::abs(gen_stats.best_fitness - previous_best_fitness_);

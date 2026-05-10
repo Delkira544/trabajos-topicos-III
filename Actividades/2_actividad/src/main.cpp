@@ -278,21 +278,23 @@ int main(int argc, char *argv[]) {
     }
 
     std::cout << "\n=== Reporte por Generación ===\n";
-    std::cout << "Gen\tBest\tAvg\tWorst\tValid\tConverg\n";
+    std::cout << "Gen\tBest\tAvg\tStd\tWorst\tValid\tConverg\n";
     for (const auto &s : stats) {
         std::cout << s.generation << "\t" << s.best_fitness << "\t"
-                  << s.avg_fitness << "\t" << s.worst_fitness << "\t"
+                  << s.avg_fitness << "\t" << s.std_fitness << "\t"
+                  << s.worst_fitness << "\t"
                   << s.valid_count << "/" << conf.population_size << "\t"
                   << s.convergence_delta << "\n";
     }
 
     if (!conf.report_file.empty()) {
         std::ofstream file(conf.report_file);
-        file << "generation,best_fitness,avg_fitness,worst_fitness,valid_count,"
+        file << "generation,best_fitness,avg_fitness,std_fitness,worst_fitness,valid_count,"
                 "convergence_delta\n";
         for (const auto &s : stats) {
             file << s.generation << "," << s.best_fitness << ","
-                 << s.avg_fitness << "," << s.worst_fitness << ","
+                 << s.avg_fitness << "," << s.std_fitness << ","
+                 << s.worst_fitness << ","
                  << s.valid_count << "," << s.convergence_delta << "\n";
         }
         std::cout << "Reporte guardado en: " << conf.report_file << "\n";

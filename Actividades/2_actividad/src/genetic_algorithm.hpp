@@ -91,6 +91,7 @@ struct GenerationStats {
     float best_fitness;
     float avg_fitness;
     float worst_fitness;
+    float std_fitness;   // desviación estándar del fitness de la población
     int valid_count;
     bool best_is_valid;
     float convergence_delta;
