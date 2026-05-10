@@ -110,7 +110,8 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
         // Elitismo selectivo: solo preservar si es válido
         if (best_ever.is_valid) {
             new_population.push_back(best_ever);
-            Fitness::Evaluate(new_population.back(), instance, gen, generations);
+            Fitness::Evaluate(new_population.back(), instance, gen,
+                              generations);
         }
 
         int children_needed =
@@ -145,8 +146,8 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
                 Mutation::BitFlip(c1, local_rate, thread_rng);
                 Mutation::BitFlip(c2, local_rate, thread_rng);
 
-                // Fitness::Repair(c1, instance, thread_rng);
-                // Fitness::Repair(c2, instance, thread_rng);
+                Fitness::Repair(c1, instance, thread_rng);
+                Fitness::Repair(c2, instance, thread_rng);
 
                 all_children[tid].push_back(c1);
                 if (i + 1 < children_needed) {
@@ -297,7 +298,8 @@ void GeneticAlgorithm::Run() {
         // Elitismo selectivo: solo preservar si es válido
         if (best_ever.is_valid) {
             new_population.push_back(best_ever);
-            Fitness::Evaluate(new_population.back(), instance, gen, generations);
+            Fitness::Evaluate(new_population.back(), instance, gen,
+                              generations);
         }
 
         while (static_cast<int>(new_population.size()) < population_size) {
@@ -314,8 +316,8 @@ void GeneticAlgorithm::Run() {
             Mutation::BitFlip(c1, current_mutation_rate_, rng);
             Mutation::BitFlip(c2, current_mutation_rate_, rng);
 
-            // Fitness::Repair(c1, instance, rng);
-            // Fitness::Repair(c2, instance, rng);
+            Fitness::Repair(c1, instance, rng);
+            Fitness::Repair(c2, instance, rng);
 
             Fitness::Evaluate(c1, instance, gen, generations);
             Fitness::Evaluate(c2, instance, gen, generations);

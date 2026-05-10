@@ -24,18 +24,23 @@ import random
 # Configuración de instancias
 # ─────────────────────────────────────────────
 INSTANCES = {
-    "small": {"n_items": 100, "n_categories": 5},
-    "medium": {"n_items": 1_000, "n_categories": 7},
-    "large": {"n_items": 10_000, "n_categories": 10},
+    "small": {"n_items": 100},
+    "medium": {"n_items": 1_000},
+    "large": {"n_items": 10_000},
 }
+
+N_CATEGORIES = 5  # Fijo para todas las instancias
 
 # Porcentaje de capacidad recomendado (instancia media)
 CAPACITY_RATIO = 0.40
 
-# Proporciones de incompatibilidades y dependencias sobre n_items
-# Se ajustan dinámicamente según el tamaño de la instancia
-BASE_INCOMPATIBILITY_RATIO = 0.02  # ~3% de pares incompatibles para small
-BASE_DEPENDENCY_RATIO = 0.01  # ~5% de ítems con dependencia para small
+# Proporción fija de incompatibilidades y dependencias sobre n_items.
+# Al ser constantes producen cantidades linealmente proporcionales al tamaño:
+#   small (100):  5 incompatibilidades,  10 dependencias
+#   medium (1000): 50 incompatibilidades, 100 dependencias
+#   large (10000): 500 incompatibilidades, 1000 dependencias
+INCOMPATIBILITY_RATIO = 0.1
+DEPENDENCY_RATIO = 0.08
 
 
 def calculate_penalties(n_items: int) -> dict:
@@ -44,11 +49,11 @@ def calculate_penalties(n_items: int) -> dict:
     La suma de todos los pesos es exactamente 1.0 (100%).
     """
     return {
-        "alpha": 0.30,  # 30% de importancia al Exceso de Peso
-        "beta": 0.30,  # 20% de importancia al Exceso de Volumen
-        "gamma": 0.05,  # 10% de importancia a las Categorías
-        "delta": 0.20,  # 20% de importancia a las Incompatibilidades
-        "epsilon": 0.15,  # 20% de importancia a las Dependencias
+        "alpha": 0.10,  # 30% de importancia al Exceso de Peso
+        "beta": 0.10,  # 20% de importancia al Exceso de Volumen
+        "gamma": 0.20,  # 10% de importancia a las Categorías
+        "delta": 0.30,  # 20% de importancia a las Incompatibilidades
+        "epsilon": 0.30,  # 20% de importancia a las Dependencias
     }
 
 
@@ -76,32 +81,22 @@ def generate_items(n_items: int, n_categories: int, rng: random.Random) -> list[
     return items
 
 
-def generate_category_rules(
-    items: list[dict],
-    n_categories: int,
-    rng: random.Random,
-) -> list[dict]:
-    """Genera reglas de mínimo/máximo por categoría."""
-    # Contar ítems por categoría
+def generate_category_rules(items: list[dict]) -> list[dict]:
+    """Genera reglas de mínimo/máximo proporcionales al conteo real de cada categoría.
+
+    minimo = 5% del total de esa categoría  → el GA debe incluir al menos algunos ítems
+    maximo = 40% del total de esa categoría → coherente con CAPACITY_RATIO
+    Ambos valores escalan linealmente con la distribución real, independientemente del tamaño.
+    """
     counts: dict[str, int] = {}
     for it in items:
         counts[it["categoria"]] = counts.get(it["categoria"], 0) + 1
 
     rules = []
     for cat, total in counts.items():
-        # Mínimo: entre 0 y 10% del total de esa categoría
-        minimo = rng.randint(0, max(0, total // 10))
-        # Máximo: entre 30% y 80% del total de esa categoría (siempre >= minimo)
-        maximo = rng.randint(
-            max(minimo, total // 4), max(minimo + 1, int(total * 0.80))
-        )
-        rules.append(
-            {
-                "categoria": cat,
-                "minimo": minimo,
-                "maximo": maximo,
-            }
-        )
+        minimo = max(0, int(total * 0.05))
+        maximo = max(minimo + 1, int(total * 0.40))
+        rules.append({"categoria": cat, "minimo": minimo, "maximo": maximo})
     return rules
 
 
@@ -139,10 +134,10 @@ def generate_dependencies(
     attempts = 0
     max_attempts = n_deps * 10
     while len(deps) < n_deps and attempts < max_attempts:
-        item = rng.randint(0, n_items - 1)
-        requerido = rng.randint(0, n_items - 1)
-        if item != requerido:
-            deps.add((item, requerido))
+        a, b = rng.randint(0, n_items - 1), rng.randint(0, n_items - 1)
+        if a != b:
+            # id_requerido < id_item garantiza que no se forman ciclos directos
+            deps.add((max(a, b), min(a, b)))
         attempts += 1
 
     return [{"id_item": item, "id_requerido": req} for item, req in sorted(deps)]
@@ -179,16 +174,13 @@ def generate_instance(
     os.makedirs(out_dir, exist_ok=True)
 
     n_items = cfg["n_items"]
-    n_categories = cfg["n_categories"]
 
-    # ── Calcular ratios proporcionales ────────────────────────
-    # Ajustar ratios dinámicamente: cap máximo para evitar exceso
-    incomp_ratio = min(BASE_INCOMPATIBILITY_RATIO, 50.0 / n_items)
-    dep_ratio = min(BASE_DEPENDENCY_RATIO, 100.0 / n_items)
+    incomp_ratio = INCOMPATIBILITY_RATIO
+    dep_ratio = DEPENDENCY_RATIO
 
     # ── Generar datos ──────────────────────────────────────────
-    items = generate_items(n_items, n_categories, rng)
-    category_rules = generate_category_rules(items, n_categories, rng)
+    items = generate_items(n_items, N_CATEGORIES, rng)
+    category_rules = generate_category_rules(items)
     incompatibilities = generate_incompatibilities(n_items, incomp_ratio, rng)
     dependencies = generate_dependencies(n_items, dep_ratio, rng)
     penalties = calculate_penalties(n_items)

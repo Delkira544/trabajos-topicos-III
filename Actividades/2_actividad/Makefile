@@ -29,10 +29,10 @@ SRCS      = $(wildcard $(SRC_DIR)/*.cpp)
 OBJS      = $(patsubst $(SRC_DIR)/%.cpp, $(BUILD_DIR)/%.o, $(SRCS))
 
 # 3. REGLAS PRINCIPALES
-GENERATIONS = 250
-POPULATION = 100
-THEADS = 4
-SEED = 123
+GENERATIONS = 700
+POPULATION = 120
+THEADS = 8
+SEED = 132512
 
 # El objetivo final depende de los objetos en la carpeta build
 all: $(TARGET)
@@ -55,7 +55,7 @@ small: all
 				--generations $(GENERATIONS) \
 				--threads $(THEADS)  \
 				--seed $(SEED) \
-				--report-file result/report_small.csv \
+				--report-file result/report_small.csv
 
 medium: all
 	./$(TARGET) --instance data/medium \
@@ -63,7 +63,7 @@ medium: all
                 --generations $(GENERATIONS) \
                 --threads $(THEADS)  \
                 --seed $(SEED) \
-               	--report-file result/report_medium.csv \
+               	--report-file result/report_medium.csv
 
 
 large: all
@@ -72,7 +72,7 @@ large: all
 				--generations $(GENERATIONS) \
 				--threads $(THEADS)  \
 				--seed $(SEED) \
-				--report-file result/report_large.csv \
+				--report-file result/report_large.csv
 
 # Limpieza profunda
 clean:

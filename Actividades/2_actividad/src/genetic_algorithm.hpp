@@ -91,8 +91,8 @@ class GeneticAlgorithm {
     float base_mutation_rate_;
     float current_mutation_rate_;
     int generations_since_improvement_;
-    static constexpr int STALL_LIMIT = 150;
-    static constexpr float BOOST_RATE = 0.15f;
+    static constexpr int STALL_LIMIT = 200;
+    static constexpr float BOOST_RATE = 0.05f;
     float previous_best_fitness_;
     float convergence_threshold_;
 
