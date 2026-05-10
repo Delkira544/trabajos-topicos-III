@@ -77,5 +77,3 @@ __pycache__/
 data/medium/
 data/large/
 data/small/
-result/
-*.csv

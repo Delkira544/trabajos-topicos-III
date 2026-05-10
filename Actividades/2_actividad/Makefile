@@ -113,6 +113,24 @@ endif
 	@echo "  results/$(BENCH_NAME)_bench_standard_$(BENCH_CONFIG).csv"
 	@echo "  results/$(BENCH_NAME)_bench_islands_$(BENCH_CONFIG).csv"
 
+benchmark-island: all
+	$(eval BENCH_ARGS := $(filter-out $@,$(MAKECMDGOALS)))
+	$(eval BENCH_CONFIG := $(word 1,$(BENCH_ARGS)))
+	$(eval BENCH_NAME := $(word 2,$(BENCH_ARGS)))
+	$(if $(BENCH_CONFIG),,$(error Uso: make benchmark <config> <nombre>. ej: make benchmark 1 experimento1))
+	$(if $(BENCH_NAME),,$(error Uso: make benchmark <config> <nombre>. ej: make benchmark 1 experimento1))
+ifeq ($(OS), Windows_NT)
+	@if not exist results mkdir results
+else
+	@mkdir -p results
+endif
+	@echo ">>> Variante: islands"
+	./$(TARGET) --benchmark --variant islands --config $(BENCH_CONFIG) \
+		--seed $(SEED) --threads $(THEADS) \
+		--report-file results/$(BENCH_NAME)_bench_islands_$(BENCH_CONFIG).csv
+	@echo "  results/$(BENCH_NAME)_bench_islands_$(BENCH_CONFIG).csv"
+
+
 # Limpieza profunda
 clean:
 	$(RM) $(call FIX_PATH, $(BUILD_DIR)/*.o)

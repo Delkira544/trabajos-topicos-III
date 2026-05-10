@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
             case 3:
                 bconf.num_islands = 8;
                 bconf.population_per_island = 25;
-                bconf.generations = 500;
+                bconf.generations = 1200;
                 bconf.mutation_rate = 0.03f;
                 bconf.migration_frequency = 20;
                 bconf.num_migrants = 4;
