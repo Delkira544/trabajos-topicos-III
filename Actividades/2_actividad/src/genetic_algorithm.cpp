@@ -16,9 +16,7 @@ GeneticAlgorithm::GeneticAlgorithm(const Instance &instance,
                                    float mutation_rate, int seed)
     : instance(instance), population_size(population_size),
       generations(generations), mutation_rate(mutation_rate), seed(seed),
-      base_mutation_rate_(mutation_rate), current_mutation_rate_(mutation_rate),
-      generations_since_improvement_(0), previous_best_fitness_(0.0f),
-      convergence_threshold_(0.001f) {
+      previous_best_fitness_(0.0f), convergence_threshold_(0.001f) {
     rng.seed(seed);
 }
 
@@ -96,23 +94,11 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
     Individual best_ever = FindBest(population);
 
     for (int gen = 0; gen < generations; ++gen) {
-        // Mutación adaptativa: boost si hay estancamiento
-        if (generations_since_improvement_ >= STALL_LIMIT) {
-            current_mutation_rate_ = BOOST_RATE;
-            generations_since_improvement_ = 0;
-        } else {
-            current_mutation_rate_ = base_mutation_rate_;
-        }
-
         std::vector<Individual> new_population;
         new_population.reserve(population_size);
 
-        // Elitismo selectivo: solo preservar si es válido
-        if (best_ever.is_valid) {
-            new_population.push_back(best_ever);
-            Fitness::Evaluate(new_population.back(), instance, gen,
-                              generations);
-        }
+        new_population.push_back(best_ever);
+        Fitness::Evaluate(new_population.back(), instance, gen, generations);
 
         int children_needed =
             population_size - static_cast<int>(new_population.size());
@@ -131,7 +117,6 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
             int tid = omp_get_thread_num();
             std::mt19937 thread_rng = get_rng_for_thread(tid);
             int tournament_size = 3;
-            float local_rate = current_mutation_rate_;
 
 #pragma omp for schedule(static)
             for (int i = 0; i < children_needed; i += 2) {
@@ -143,8 +128,8 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
                 Individual c1, c2;
                 Crossover::SinglePoint(p1, p2, c1, c2, thread_rng);
 
-                Mutation::BitFlip(c1, local_rate, thread_rng);
-                Mutation::BitFlip(c2, local_rate, thread_rng);
+                Mutation::BitFlip(c1, mutation_rate, thread_rng);
+                Mutation::BitFlip(c2, mutation_rate, thread_rng);
 
                 Fitness::Repair(c1, instance, thread_rng);
                 Fitness::Repair(c2, instance, thread_rng);
@@ -155,13 +140,6 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
                 }
             }
         }
-
-        // Restaurar tasa base después de la generación boosteada
-        if (current_mutation_rate_ != base_mutation_rate_) {
-            std::cout << "[ADAPT] Mutación boosteada al " << BOOST_RATE * 100
-                      << "% en generación " << gen << "\n";
-        }
-        current_mutation_rate_ = base_mutation_rate_;
 
         for (int t = 0; t < actual_threads; ++t) {
             children.insert(children.end(), all_children[t].begin(),
@@ -182,9 +160,6 @@ void GeneticAlgorithm::RunParallel(int num_threads) {
         Individual current_best = FindBest(population);
         if (IsBetter(current_best, best_ever)) {
             best_ever = current_best;
-            generations_since_improvement_ = 0;
-        } else {
-            generations_since_improvement_++;
         }
 
         RecordStats(gen);
@@ -284,23 +259,11 @@ void GeneticAlgorithm::Run() {
     Individual best_ever = FindBest(population);
 
     for (int gen = 0; gen < generations; ++gen) {
-        // Mutación adaptativa: boost si hay estancamiento
-        if (generations_since_improvement_ >= STALL_LIMIT) {
-            current_mutation_rate_ = BOOST_RATE;
-            generations_since_improvement_ = 0;
-        } else {
-            current_mutation_rate_ = base_mutation_rate_;
-        }
-
         std::vector<Individual> new_population;
         new_population.reserve(population_size);
 
-        // Elitismo selectivo: solo preservar si es válido
-        if (best_ever.is_valid) {
-            new_population.push_back(best_ever);
-            Fitness::Evaluate(new_population.back(), instance, gen,
-                              generations);
-        }
+        new_population.push_back(best_ever);
+        Fitness::Evaluate(new_population.back(), instance, gen, generations);
 
         while (static_cast<int>(new_population.size()) < population_size) {
             int tournament_size = 3;
@@ -310,11 +273,10 @@ void GeneticAlgorithm::Run() {
                 Selection::Tournament(population, tournament_size, rng);
 
             Individual c1, c2;
-
             Crossover::SinglePoint(p1, p2, c1, c2, rng);
 
-            Mutation::BitFlip(c1, current_mutation_rate_, rng);
-            Mutation::BitFlip(c2, current_mutation_rate_, rng);
+            Mutation::BitFlip(c1, mutation_rate, rng);
+            Mutation::BitFlip(c2, mutation_rate, rng);
 
             Fitness::Repair(c1, instance, rng);
             Fitness::Repair(c2, instance, rng);
@@ -328,22 +290,11 @@ void GeneticAlgorithm::Run() {
             }
         }
 
-        // Restaurar tasa base después de la generación boosteada
-        if (current_mutation_rate_ != base_mutation_rate_) {
-            std::cout << "[ADAPT] Mutación boosteada al " << BOOST_RATE * 100
-                      << "% en generación " << gen << "\n";
-        }
-        current_mutation_rate_ = base_mutation_rate_;
-
         population = std::move(new_population);
 
-        // Actualizar mejor histórico
         Individual current_best = FindBest(population);
         if (IsBetter(current_best, best_ever)) {
             best_ever = current_best;
-            generations_since_improvement_ = 0;
-        } else {
-            generations_since_improvement_++;
         }
 
         RecordStats(gen);

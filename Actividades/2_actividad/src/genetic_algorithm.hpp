@@ -42,8 +42,8 @@ struct PenaltyConfig {
     float delta = 0.3f;   // w₄: incompatibilidades
     float epsilon = 0.3f; // w₅: dependencias
     // α y β del modelo: fitness = α·valor_norm − β·violacion_norm (α+β=1)
-    float obj_weight = 0.7f; // α: importancia del valor objetivo
-    float pen_weight = 0.3f; // β: importancia de la violación (1−α)
+    float obj_weight = 0.6f; // α: importancia del valor objetivo
+    float pen_weight = 0.4f; // β: importancia de la violación (1−α)
 };
 
 struct Instance {
@@ -68,7 +68,8 @@ struct Individual {
     }
 };
 
-// Válido gana a inválido; ambos inválidos → menor penalización (más factible); ambos válidos → mayor fitness.
+// Válido gana a inválido; ambos inválidos → menor penalización (más factible);
+// ambos válidos → mayor fitness.
 inline bool IsBetter(const Individual &a, const Individual &b) {
     if (a.is_valid != b.is_valid) return a.is_valid;
     if (!a.is_valid) return a.penalty < b.penalty;
@@ -96,11 +97,6 @@ class GeneticAlgorithm {
 
     std::vector<Individual> population;
     std::vector<GenerationStats> stats_;
-    float base_mutation_rate_;
-    float current_mutation_rate_;
-    int generations_since_improvement_;
-    static constexpr int STALL_LIMIT = 200;
-    static constexpr float BOOST_RATE = 0.05f;
     float previous_best_fitness_;
     float convergence_threshold_;
 
