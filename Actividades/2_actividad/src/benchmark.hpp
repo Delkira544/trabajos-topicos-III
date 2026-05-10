@@ -19,7 +19,9 @@ struct BenchmarkConfig {
     int migration_frequency = 10;
     int num_migrants = 2;
     std::string migration_topology = "ring";
-    std::string report_file = "benchmark_results.csv";
+    std::string report_file = "results/benchmark_results.csv";
+    bool verbose = false;
+    int base_seed = 0;
 };
 
 class Benchmark {

@@ -294,5 +294,33 @@ void IslandModel::RunParallel(int num_threads) {
 }
 
 void IslandModel::View_Population() const {
-    std::cout << "Poblaciones de Islas no mostradas detalladamente aún.\n";
+    int total_pop = num_islands * population_per_island;
+    std::cout << "\n=== Población de Islas (" << total_pop 
+              << " individuos en " << num_islands << " islas) ===\n";
+
+    float best = islands[0][0].fitness;
+    float worst = islands[0][0].fitness;
+    float sum = 0;
+    int valid_count = 0;
+
+    for (int i = 0; i < num_islands; ++i) {
+        for (const auto& ind : islands[i]) {
+            best = std::max(best, ind.fitness);
+            worst = std::min(worst, ind.fitness);
+            sum += ind.fitness;
+            if (ind.is_valid) valid_count++;
+        }
+    }
+
+    std::cout << "Mejor: " << best << "\n";
+    std::cout << "Peor: " << worst << "\n";
+    std::cout << "Promedio: " << (sum / total_pop) << "\n";
+    std::cout << "Válidos: " << valid_count << "/" << total_pop << "\n";
+
+    Individual mejor = GetBestSolution();
+    std::cout << "\nMejor individuo global:\n";
+    std::cout << "  Fitness: " << mejor.fitness << "\n";
+    std::cout << "  Válido: " << (mejor.is_valid ? "Sí" : "No") << "\n";
+    int selected = std::count(mejor.chromosome.begin(), mejor.chromosome.end(), true);
+    std::cout << "  Ítems seleccionados: " << selected << "\n";
 }

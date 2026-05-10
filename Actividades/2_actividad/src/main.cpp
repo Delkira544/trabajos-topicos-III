@@ -117,6 +117,8 @@ int main(int argc, char *argv[]) {
         bconf.migration_frequency = conf.migration_frequency;
         bconf.num_migrants = conf.num_migrants;
         bconf.migration_topology = conf.migration_topology;
+        bconf.verbose = conf.verbose;
+        bconf.base_seed = conf.seed;
 
         if (conf.variant == "standard") {
             switch (bench_config_id) {
