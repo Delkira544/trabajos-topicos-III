@@ -11,6 +11,36 @@
 #include <filesystem>
 #include <omp.h>
 
+// =============================================================================
+// Implementación de la suite de benchmark.
+//
+// La función Run() recorre `instances × threads_list × repetitions` y reporta
+// dos CSV:
+//
+//   1) RESUMEN (configurable vía --report-file):
+//      Instance, Variant, ConfigID, BaseSeed, Threads,
+//      AvgTime(s), StdTime(s), BestFeasibleValue, BestFitness,
+//      Feasible%, Speedup, Efficiency
+//
+//   2) DETALLADO (results/detailed_benchmark.csv, sobreescrito cada corrida):
+//      Instance, Variant, ConfigID, Threads, Repetition, Seed,
+//      Time(s), BestFeasibleValue, BestFitness, Feasible%
+//
+// La línea base para el speedup es la corrida con T=1 (que invoca Run()
+// secuencial), por lo que threads_list DEBE empezar con 1.
+//
+// Notas de reproducibilidad:
+//   - Cada repetición usa una semilla derivada: base_seed + r·13.
+//   - Si dos máquinas usan la misma seed pero distinta implementación STL
+//     (libstdc++ vs libc++ vs MSVC STL) los resultados PUEDEN diferir porque
+//     std::uniform_int_distribution no es portable entre implementaciones.
+// =============================================================================
+
+/**
+ * @brief Resultado agregado de una combinación (instancia, hilos).
+ *
+ * Se acumula en `all_results` para imprimir la tabla resumen al final.
+ */
 struct BenchmarkResult {
     std::string instance_name;
     int threads;

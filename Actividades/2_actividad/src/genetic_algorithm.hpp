@@ -7,6 +7,22 @@
 #include <vector>
 #include <omp.h>
 
+// =============================================================================
+// genetic_algorithm.hpp — Estructuras del dominio + clase del AG estándar
+// =============================================================================
+// Este header define TODAS las estructuras de datos del proyecto:
+//   - Datos del problema (Item, CategoryRule, Incompatibility, etc.)
+//   - Configuración (KnapsackConfig, PenaltyConfig, Instance)
+//   - Solución (Individual, GenerationStats)
+//   - Comparador lexicográfico (IsBetter) — usado por TODOS los selectores
+//
+// También declara la clase `GeneticAlgorithm`, que implementa la variante
+// estándar del AG en dos modos: secuencial (`Run`) y paralelo OpenMP
+// (`RunParallel`). El modelo de islas (clase `IslandModel`, en otro archivo)
+// reutiliza estos tipos.
+// =============================================================================
+
+/// Ítem disponible para la mochila. ID, valor, peso, volumen y categoría.
 struct Item {
     int id;
     float value;
@@ -15,21 +31,27 @@ struct Item {
     std::string category;
 };
 
+/// Cantidades mínima/máxima permitidas de ítems en una categoría.
 struct CategoryRule {
     int min;
     int max;
 };
 
+/// Mapa categoría → regla. Usado en Instance.
 using CategoryMap = std::unordered_map<std::string, CategoryRule>;
 
+/// Par incompatible: dos ítems que no pueden estar seleccionados simultáneamente.
 struct Incompatibility {
     int id_a;
     int id_b;
 };
 
+/// Lista de dependencias. Cada pair = (id_item, id_requerido).
+/// Si id_item está seleccionado, id_requerido también debe estarlo.
 using DependencyMap =
-    std::vector<std::pair<int, int>>; // (id_item, id_requerido)
+    std::vector<std::pair<int, int>>;
 
+/// Capacidades de la mochila (restricciones duras).
 struct KnapsackConfig {
     float max_weight;
     float max_volume;
@@ -50,16 +72,23 @@ struct PenaltyConfig {
     float pen_weight = 0.7f; // β
 };
 
+/**
+ * @brief Bundle inmutable de TODOS los datos del problema.
+ *
+ * Construido una sola vez por `InstanceLoader::load()`. Los campos
+ * `max_*` son pre-cálculos auxiliares usados para normalizar en
+ * `Fitness::Evaluate`.
+ */
 struct Instance {
-    std::vector<Item> items;
-    CategoryMap category_rules;
-    std::vector<Incompatibility> incompatibilities;
-    DependencyMap dependencies;
-    KnapsackConfig knapsack;
-    PenaltyConfig penalties;
-    float max_value = 0.0f;
-    float max_excess_weight = 0.0f; // Pᵢ_max real: Σpesos − max_weight
-    float max_excess_volume = 0.0f; // Pᵢ_max real: Σvolúmenes − max_volume
+    std::vector<Item> items;                          ///< Catálogo completo
+    CategoryMap category_rules;                       ///< Cuotas por categoría
+    std::vector<Incompatibility> incompatibilities;   ///< Pares incompatibles
+    DependencyMap dependencies;                       ///< Dependencias item→requerido
+    KnapsackConfig knapsack;                          ///< Capacidades W, V
+    PenaltyConfig penalties;                          ///< Pesos α..ε + obj/pen weights
+    float max_value = 0.0f;                           ///< Σ valor de todos los ítems
+    float max_excess_weight = 0.0f;                   ///< Σ pesos − max_weight
+    float max_excess_volume = 0.0f;                   ///< Σ volúmenes − max_volume
 };
 
 struct Individual {
@@ -97,19 +126,39 @@ struct GenerationStats {
     float convergence_delta;
 };
 
+/**
+ * @brief Algoritmo Genético estándar para la mochila extendida.
+ *
+ * Implementa dos modos de ejecución equivalentes funcionalmente:
+ *   - `Run()`         secuencial puro.
+ *   - `RunParallel(t)` paralelo con OpenMP en 3 zonas críticas.
+ *
+ * El AG incluye todas las mejoras de diseño:
+ *   #1 Penalización cuadrática para hard constraints
+ *   #3 IsBetter lexicográfico
+ *   #4 Uniform crossover con sesgo
+ *   #5 BitFlipAsymmetric (mutación consciente de capacidad)
+ *   #6 Anti-estancamiento por inyección de diversidad
+ *   #7 Elitismo del top 10%
+ *   #8 Tournament k=5
+ *   #11 TargetedFix (mutación dirigida a violaciones)
+ *   #12 Parada anticipada al alcanzar factibilidad + ventana de refinamiento
+ */
 class GeneticAlgorithm {
   private:
-    Instance instance;
-    int population_size;
-    int generations;
-    float mutation_rate;
-    int seed;
-    std::mt19937 rng;
+    // ── Parámetros del problema ───────────────────────────────────────────
+    Instance instance;          ///< Datos del problema (referencia local)
+    int population_size;        ///< Tamaño total de la población
+    int generations;            ///< Máximo de generaciones (techo duro)
+    float mutation_rate;        ///< Tasa base de mutación (0..1)
+    int seed;                   ///< Semilla del RNG principal
+    std::mt19937 rng;           ///< Generador aleatorio (sembrado con `seed`)
 
-    std::vector<Individual> population;
-    std::vector<GenerationStats> stats_;
-    float previous_best_fitness_;
-    float convergence_threshold_;
+    // ── Estado del bucle evolutivo ────────────────────────────────────────
+    std::vector<Individual> population;             ///< Población actual
+    std::vector<GenerationStats> stats_;            ///< Stats por generación
+    float previous_best_fitness_;                   ///< Para calcular Δ entre gens
+    float convergence_threshold_;                   ///< Umbral de Δ promedio
 
     // Mejora #7 — elitismo del 10% del top (en vez de un único campeón)
     float elite_fraction_ = 0.10f;
@@ -142,14 +191,33 @@ class GeneticAlgorithm {
     int CountTotalViolations(const Individual &ind) const;
 
   public:
+    /**
+     * @brief Constructor — sólo configura, NO inicializa la población.
+     * La inicialización ocurre dentro de Run() / RunParallel().
+     */
     GeneticAlgorithm(const Instance &instance, int population_size,
                      int generations, float mutation_rate, int seed);
 
+    /// Imprime stats resumidas de la población actual (debug).
     void View_Population();
+
+    /// Ejecuta el bucle evolutivo en modo secuencial (un solo hilo).
     void Run();
+
+    /**
+     * @brief Ejecuta el bucle en modo paralelo con OpenMP.
+     * @param num_threads  Si > 0, llama a omp_set_num_threads(num_threads).
+     *                     Si 0, OpenMP usa su default (típicamente OMP_NUM_THREADS).
+     */
     void RunParallel(int num_threads = 0);
+
+    /// Devuelve el mejor individuo de la población final (no `best_ever_`).
     Individual GetBestSolution() const;
+
+    /// Acceso de sólo lectura al log de stats por generación.
     const std::vector<GenerationStats> &GetStats() const;
+
+    /// Ajusta el umbral de Δ usado por HasConverged(). Default: 0.001.
     void SetConvergenceThreshold(float threshold);
 };
 

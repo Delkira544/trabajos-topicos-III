@@ -7,13 +7,31 @@
 #include <unordered_map>
 #include <unordered_set>
 
+// =============================================================================
+// Implementación de la función de aptitud.
+//
+// Pasos (en una sola pasada del cromosoma):
+//   1. Acumular total_value, total_weight, total_volume y conteos de categorías.
+//   2. Calcular violaciones por tipo (capacidad, categorías, incompat, deps).
+//   3. Normalizar cada componente a [0,1]:
+//        - Hard (peso, vol): CUADRÁTICA amplificada → min(1, (exceso/cap)²·100)
+//        - Soft (cat, inc, dep): LINEAL → errores / total_posibles
+//   4. Combinar por suma ponderada (combinación convexa Σw=1).
+//   5. fitness = obj_weight · valor_norm − pen_weight · violacion_norm
+//   6. Marcar hard_feasible e is_valid.
+// =============================================================================
+
 namespace Fitness {
 
+    // Escala de penalización legacy (no usada por el modelo actual).
     static constexpr float PENALTY_SCALE = 3.0f;
 
     void Evaluate(Individual &ind, const Instance &instance, int generation,
                   int total_generations) {
-        // 1. Variables acumuladoras
+        // ---------------------------------------------------------------------
+        // 1. Acumuladores: una sola pasada por el cromosoma para reunir TODA
+        //    la información derivada de la solución actual.
+        // ---------------------------------------------------------------------
         float total_value = 0.0f;
         float total_weight = 0.0f;
         float total_volume = 0.0f;
@@ -147,6 +165,17 @@ namespace Fitness {
                        && (errores_dependencia == 0);
     }
 
+    // =========================================================================
+    // PrintConstraintDetails — diagnóstico legible del individuo.
+    //
+    // Recorre el cromosoma y emite por stdout el estado de cada restricción
+    // (peso, volumen, cada categoría, cada incompat, cada dep). Útil al final
+    // de una corrida para verificar visualmente la solución reportada.
+    //
+    // No modifica el individuo. La complejidad es O(n + |incompat| + |dep|)
+    // por bloque, pero el reporte final usa búsquedas anidadas que en peor
+    // caso son O(n · (|incompat| + |dep|)) — aceptable porque es one-shot.
+    // =========================================================================
     void PrintConstraintDetails(const Individual &ind,
                                 const Instance &instance) {
         float total_weight = 0.0f;

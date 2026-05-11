@@ -1,3 +1,18 @@
+// =============================================================================
+// main.cpp — Punto de entrada del binario `mochila_ga`
+// =============================================================================
+// Responsabilidades:
+//   1. Parsear los flags de CLI (--instance, --variant, --threads, --seed, …).
+//   2. Despachar a una de dos rutas:
+//      a) Modo benchmark (--benchmark): arma un BenchmarkConfig y delega
+//         en Benchmark::Run(). Maneja 4 configuraciones predefinidas (1-4)
+//         para "standard" y para "islands".
+//      b) Modo corrida única: carga la instancia, instancia el AG, ejecuta
+//         secuencial o paralelo, imprime stats por generación, escribe CSV
+//         (si --report-file se pidió) y muestra detalle de restricciones.
+//   3. Medir tiempo total con std::chrono y reportarlo al final.
+// =============================================================================
+
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -8,22 +23,29 @@
 #include "instance_loader.hpp"
 #include "benchmark.hpp"
 
+/**
+ * @brief Bundle de configuración para la corrida única.
+ * Cada campo corresponde a un flag de CLI. Defaults razonables para pruebas
+ * rápidas; valores típicos de producción se setean en el Makefile.
+ */
 struct Config {
-    std::string instance;
-    std::string variant = "standard";
-    int threads = 1;
-    int seed = 0;
-    int population_size = 100;
-    int generations = 50;
-    float mutation_rate = 0.03f;
-    bool verbose = false;
-    float convergence_threshold = 0.00001f;
-    std::string report_file;
+    std::string instance;                    ///< Dir con los 6 CSV (obligatorio)
+    std::string variant = "standard";        ///< "standard" o "islands"
+    int threads = 1;                         ///< Hilos OpenMP (>1 → RunParallel)
+    int seed = 0;                            ///< Semilla del RNG
+    int population_size = 100;               ///< Tam. población (variante estándar)
+    int generations = 50;                    ///< Generaciones máximas
+    float mutation_rate = 0.03f;             ///< Tasa de bit-flip
+    bool verbose = false;                    ///< Imprime detalle extra
+    float convergence_threshold = 0.00001f;  ///< Umbral para HasConverged
+    std::string report_file;                 ///< CSV con stats por gen (opcional)
+
+    // Parámetros sólo para variante "islands"
     int num_islands = 4;
     int population_per_island = 25;
     int migration_frequency = 10;
     int num_migrants = 2;
-    std::string migration_topology = "ring";
+    std::string migration_topology = "ring"; ///< "ring" o "random"
 };
 
 void print_usage(const char *program) {
@@ -54,6 +76,17 @@ void print_usage(const char *program) {
         << "  --help, -h             Mostrar esta ayuda\n";
 }
 
+/**
+ * @brief Punto de entrada. Parsea CLI y despacha a benchmark o corrida única.
+ *
+ * Flujo:
+ *   1. Inicializa Config con defaults.
+ *   2. Recorre argv: cada flag actualiza el campo correspondiente.
+ *   3. Si --benchmark: construye BenchmarkConfig según --variant y --config,
+ *      llama a Benchmark::Run y retorna.
+ *   4. Si no: valida args mínimos, carga instancia, instancia AG/IslandModel,
+ *      ejecuta (Run o RunParallel según --threads), reporta stats y CSV.
+ */
 int main(int argc, char *argv[]) {
     Config conf;
     bool is_benchmark = false;

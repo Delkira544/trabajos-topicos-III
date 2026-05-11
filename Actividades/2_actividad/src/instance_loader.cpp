@@ -4,6 +4,27 @@
 #include <sstream>
 #include <stdexcept>
 
+// =============================================================================
+// Implementación de InstanceLoader.
+//
+// Cada `loadX()` sigue el mismo patrón:
+//   1. Abrir el archivo; lanzar runtime_error si falla.
+//   2. Leer y descartar la línea de cabecera.
+//   3. Para cada línea: tokenizar por coma, trim, parsear los campos.
+//   4. Construir el objeto correspondiente y agregarlo al contenedor.
+//
+// `load()` orquesta los 6 loaders y precalcula los máximos auxiliares
+// (max_value, max_excess_weight, max_excess_volume) requeridos por la
+// función de aptitud.
+// =============================================================================
+
+/**
+ * @brief Elimina espacios en blanco al inicio y al final del string.
+ *
+ * Implementación tradicional (sin std::ranges) que avanza dos iteradores
+ * hasta el primer/último carácter no-whitespace. Necesario porque los CSV
+ * generados por Python pueden contener espacios alrededor de las comas.
+ */
 std::string InstanceLoader::trim(const std::string &s) {
     auto start = s.begin();
     while (start != s.end() && std::isspace(*start)) start++;
@@ -184,6 +205,17 @@ PenaltyConfig InstanceLoader::loadPenaltyConfig(const std::string &path) {
     return config;
 }
 
+/**
+ * @brief Orquesta la carga completa de la instancia.
+ *
+ * Llama a los 6 loaders en orden y luego precalcula:
+ *   - max_value:        suma de todos los valores → cota superior de `valor_norm`
+ *   - max_excess_weight: cuánto puede excederse el peso si se eligen todos los ítems
+ *   - max_excess_volume: idem volumen
+ *
+ * Estos pre-cálculos se usan en `Fitness::Evaluate` para normalizar y como
+ * referencia teórica del peor caso de violación.
+ */
 Instance InstanceLoader::load(const std::string &directory) {
     Instance instance;
     instance.items = loadItems(directory + "/items.csv");
@@ -195,6 +227,7 @@ Instance InstanceLoader::load(const std::string &directory) {
     instance.knapsack = loadKnapsackConfig(directory + "/knapsack_config.csv");
     instance.penalties = loadPenaltyConfig(directory + "/penalty_config.csv");
 
+    // Pre-cálculos derivados: una sola pasada por los ítems.
     float total_weight = 0.0f, total_volume = 0.0f;
     for (const auto &item : instance.items) {
         instance.max_value += item.value;
