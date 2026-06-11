@@ -19,7 +19,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 #   Pascal  (GTX 10xx):  61
 # Para detectar automáticamente usar: set(CMAKE_CUDA_ARCHITECTURES native)
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-  set(CMAKE_CUDA_ARCHITECTURES 86)
+  set(CMAKE_CUDA_ARCHITECTURES 75)
 endif()
 
 # ── Flags de optimización CUDA ───────────────────────────────────────────────
@@ -28,6 +28,7 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --use_fast_math")
 # ── Includes ─────────────────────────────────────────────────────────────────
 include_directories(include)
 include_directories(external)
+include_directories(src)
 
 # ── Dependencias ─────────────────────────────────────────────────────────────
 find_package(OpenMP REQUIRED)
@@ -42,39 +43,29 @@ set(CUDA_SOURCES
   src/ga/solvers/CUDAOptimized.cu
 )
 
-# ── Fuentes C++ compartidas ───────────────────────────────────────────────────
 set(COMMON_SOURCES
   src/cli/app_parser.cpp
   src/data/instance_loader.cpp
   src/config/constants.cpp
 )
 
-# ── Ejecutable principal: run ─────────────────────────────────────────────────
-add_executable(run
-  src/main.cpp
-  ${COMMON_SOURCES}
-  ${CUDA_SOURCES}
-)
+# --- Target: run ---
+add_executable(run src/main.cpp ${COMMON_SOURCES} ${CUDA_SOURCES})
+target_link_libraries(run PRIVATE OpenMP::OpenMP_CXX CUDA::cudart CUDA::curand)
+set_target_properties(run PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-target_link_libraries(run PRIVATE
-  OpenMP::OpenMP_CXX
-  CUDA::cudart
-  CUDA::curand
-)
-
-# Permitir que los .cu incluyan headers de include/
-set_target_properties(run PROPERTIES
-  CUDA_SEPARABLE_COMPILATION ON
-)
-
-# ── Ejecutable: penalty_tuner ─────────────────────────────────────────────────
-# No necesita CUDA; se compila solo con C++
+# --- Target: penalty_tuner ---
+# Added ${CUDA_SOURCES} to fix undefined reference errors
 add_executable(penalty_tuner
   src/penalty_tuner_main.cpp
   src/penalty_tuner.cpp
   ${COMMON_SOURCES}
+  ${CUDA_SOURCES}
 )
 
-target_link_libraries(penalty_tuner PRIVATE
-  OpenMP::OpenMP_CXX
+target_link_libraries(penalty_tuner PRIVATE 
+    OpenMP::OpenMP_CXX 
+    CUDA::cudart 
+    CUDA::curand
 )
+set_target_properties(penalty_tuner PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
