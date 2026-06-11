@@ -1,8 +1,6 @@
 #include "cli/app_parser.hpp"
 
-// Implementación de la función
-void
-configurar_cli(CLI::App& app, AppConfig& config)
+void configurar_cli(CLI::App& app, AppConfig& config)
 {
   app.description(
     "Ejecucion del algoritmo genetico para resolver el problema de la mochila");
@@ -14,8 +12,14 @@ configurar_cli(CLI::App& app, AppConfig& config)
     .add_option("-v,--variant", config.variant,
                 "Variante del algoritmo genetico a ejecutar")
     ->required()
-    ->check(CLI::IsMember(
-      {"sequential", "parallel", "islands_sequential", "islands_parallel"}));
+    ->check(CLI::IsMember({
+        "sequential",
+        "parallel",
+        "islands_sequential",
+        "islands_parallel",
+        "cuda_basic",       // Variante 2: CUDA básico
+        "cuda_optimized"    // Variante 3: CUDA optimizado
+      }));
 
   app
     .add_option("-t,--threads", config.threads,
@@ -56,6 +60,13 @@ configurar_cli(CLI::App& app, AppConfig& config)
                 "Tamaño del torneo para selección")
     ->default_val(3)
     ->check(CLI::PositiveNumber);
+
+  app
+    .add_option("--block-size", config.block_size,
+                "Tamaño de bloque CUDA (hilos por bloque, debe ser múltiplo de 32)")
+    ->default_val(128)
+    ->check(CLI::IsMember({32, 64, 128, 256, 512, 1024}));
+
   app.add_flag("--verbose", config.verbose,
                "Mostrar información detallada durante la ejecución");
 }

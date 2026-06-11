@@ -1,43 +1,80 @@
 # Definir la versión mínima de CMake y el nombre del proyecto
-cmake_minimum_required(VERSION 3.10)
-project(MiClienteCLI)
+cmake_minimum_required(VERSION 3.18)
+project(MiClienteCLI LANGUAGES CXX CUDA)
 
-# Asegura que el compilador use C++11 o superior para CLI11
+# ── Estándares de lenguaje ───────────────────────────────────────────────────
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
-# Compile
+# ── Compilación ──────────────────────────────────────────────────────────────
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Indicar las carpetas donde están los archivos .hpp (cabeceras)
-# Esto reemplaza el flag -I de la terminal.
+# ── Arquitectura CUDA ────────────────────────────────────────────────────────
+# Ajusta según tu GPU:
+#   Turing  (RTX 20xx):  75
+#   Ampere  (RTX 30xx):  86
+#   Ada     (RTX 40xx):  89
+#   Pascal  (GTX 10xx):  61
+# Para detectar automáticamente usar: set(CMAKE_CUDA_ARCHITECTURES native)
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+  set(CMAKE_CUDA_ARCHITECTURES 75)
+endif()
+
+# ── Flags de optimización CUDA ───────────────────────────────────────────────
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --use_fast_math")
+
+# ── Includes ─────────────────────────────────────────────────────────────────
 include_directories(include)
 include_directories(external)
 
+# ── Dependencias ─────────────────────────────────────────────────────────────
 find_package(OpenMP REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 
-# Crear el ejecutable final llamado "run"
-# Aquí listamos todos los archivos .cpp que contienen la lógica.
-add_executable(run
-  src/main.cpp
+# ── Fuentes CUDA (kernels + solvers GPU) ─────────────────────────────────────
+set(CUDA_SOURCES
+  src/ga/cuda/fitness_kernel.cu
+  src/ga/cuda/operators_kernel.cu
+  src/ga/cuda/reduction_kernel.cu
+  src/ga/solvers/CUDABasic.cu
+  src/ga/solvers/CUDAOptimized.cu
+)
+
+# ── Fuentes C++ compartidas ───────────────────────────────────────────────────
+set(COMMON_SOURCES
   src/cli/app_parser.cpp
   src/data/instance_loader.cpp
   src/config/constants.cpp
 )
 
-if(OpenMP_CXX_FOUND)
-  target_link_libraries(run PRIVATE OpenMP::OpenMP_CXX)
-endif()
+# ── Ejecutable principal: run ─────────────────────────────────────────────────
+add_executable(run
+  src/main.cpp
+  ${COMMON_SOURCES}
+  ${CUDA_SOURCES}
+)
 
-# Crear ejecutable para tuning de penalidades
+target_link_libraries(run PRIVATE
+  OpenMP::OpenMP_CXX
+  CUDA::cudart
+  CUDA::curand
+)
+
+# Permitir que los .cu incluyan headers de include/
+set_target_properties(run PROPERTIES
+  CUDA_SEPARABLE_COMPILATION ON
+)
+
+# ── Ejecutable: penalty_tuner ─────────────────────────────────────────────────
+# No necesita CUDA; se compila solo con C++
 add_executable(penalty_tuner
   src/penalty_tuner_main.cpp
   src/penalty_tuner.cpp
-  src/cli/app_parser.cpp
-  src/data/instance_loader.cpp
-  src/config/constants.cpp
+  ${COMMON_SOURCES}
 )
 
-if(OpenMP_CXX_FOUND)
-  target_link_libraries(penalty_tuner PRIVATE OpenMP::OpenMP_CXX)
-endif()
+target_link_libraries(penalty_tuner PRIVATE
+  OpenMP::OpenMP_CXX
+)
