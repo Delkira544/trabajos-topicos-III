@@ -19,7 +19,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 #   Pascal  (GTX 10xx):  61
 # Para detectar automáticamente usar: set(CMAKE_CUDA_ARCHITECTURES native)
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-  set(CMAKE_CUDA_ARCHITECTURES 75)
+  set(CMAKE_CUDA_ARCHITECTURES 86)
 endif()
 
 # ── Flags de optimización CUDA ───────────────────────────────────────────────
