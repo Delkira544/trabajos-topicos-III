@@ -7,102 +7,73 @@
 /**
  * @brief Solver CUDA Básico del Algoritmo Genético
  *
- * Paraleliza en GPU las siguientes etapas:
+ * Paraleliza en GPU:
  *   - Evaluación de aptitud (fitness_kernel)
- *   - Selección por torneo (tournament_kernel)
- *   - Cruzamiento de un punto (crossover_kernel)
- *   - Mutación uniforme (mutation_kernel)
+ *   - Selección por torneo + cruzamiento + mutación (reproduce_kernel)
  *   - Búsqueda del mejor individuo (reduce_best_kernel)
  *
- * La población se mantiene en memoria global de GPU durante toda la
- * evolución. Solo se transfiere a CPU al inicio (carga) y al final
- * (recuperar mejor individuo).
+ * Métricas registradas por generación:
+ *   - Tiempo de kernel de fitness      (cudaEvent_t)
+ *   - Tiempo de kernel de reproducción (cudaEvent_t)
+ *   - Tiempo de transferencia H→D      (cudaEvent_t)
+ *   - Tiempo de transferencia D→H      (cudaEvent_t)
  *
- * Representación lineal orientada a accesos coalescentes:
- *   genes[ind * n_items + gene]
+ * Representación coalescente: genes[ind * n_items + gene]
  */
 class CUDABasic : public BaseGA
 {
 protected:
-    // ── Parámetros GPU ──────────────────────────────────────────────
-    int block_size;   ///< Hilos por bloque CUDA (default: 128)
+    // ── Parámetros GPU ───────────────────────────────────────────────
+    int block_size;
 
-    // ── Datos de instancia aplanados (para GPU) ──────────────────────
-    int   n_items;
-    int   n_incomp;
-    int   n_dep;
-    int   n_cat_rules;
+    // ── Datos de instancia aplanados ────────────────────────────────
+    int n_items, n_incomp, n_dep, n_cat_rules;
 
-    // Ítems
     std::vector<float> h_item_values;
     std::vector<float> h_item_weights;
     std::vector<float> h_item_volumes;
-    std::vector<int>   h_item_cat_ids;   ///< índice numérico de categoría
+    std::vector<int>   h_item_cat_ids;
+    std::vector<int>   h_incomp_a, h_incomp_b;
+    std::vector<int>   h_dep_a,    h_dep_b;
+    std::vector<int>   h_cat_id,   h_cat_min, h_cat_max;
 
-    // Reglas de incompatibilidad  [n_incomp * 2]
-    std::vector<int> h_incomp_a;
-    std::vector<int> h_incomp_b;
+    // Penalizaciones
+    float pen_weight, pen_volume, pen_category, pen_incomp, pen_dep;
+    float obj_w, pen_w;
 
-    // Reglas de dependencia  [n_dep * 2]
-    std::vector<int> h_dep_a;
-    std::vector<int> h_dep_b;
+    // ── Punteros device ──────────────────────────────────────────────
+    uint8_t* d_population;
+    uint8_t* d_offspring;
+    float*   d_fitness;
+    float*   d_penalty;
+    uint8_t* d_hard_feas;
+    uint8_t* d_is_valid;
+    float*   d_values;
+    float*   d_weights;
+    float*   d_volumes;
+    int*     d_cat_ids;
+    int*     d_incomp_a, *d_incomp_b;
+    int*     d_dep_a,    *d_dep_b;
+    int*     d_cat_id,   *d_cat_min, *d_cat_max;
+    curandState* d_rng_states;
 
-    // Reglas de categoría  [n_cat_rules * 3]: {cat_id, min, max}
-    std::vector<int> h_cat_id;
-    std::vector<int> h_cat_min;
-    std::vector<int> h_cat_max;
-
-    // Penalizaciones (escalares)
-    float pen_weight;
-    float pen_volume;
-    float pen_category;
-    float pen_incomp;
-    float pen_dep;
-    float obj_w;
-    float pen_w;
-
-    // ── Punteros en device (GPU) ─────────────────────────────────────
-    uint8_t* d_population;   ///< [pop_size * n_items]  genes actuales
-    uint8_t* d_offspring;    ///< [pop_size * n_items]  genes nueva gen
-    float*   d_fitness;      ///< [pop_size]
-    float*   d_penalty;      ///< [pop_size]
-    uint8_t* d_hard_feas;    ///< [pop_size]  1=hard_feasible
-    uint8_t* d_is_valid;     ///< [pop_size]  1=totalmente válido
-
-    // Datos de instancia en device
-    float* d_values;
-    float* d_weights;
-    float* d_volumes;
-    int*   d_cat_ids;
-    int*   d_incomp_a;
-    int*   d_incomp_b;
-    int*   d_dep_a;
-    int*   d_dep_b;
-    int*   d_cat_id;
-    int*   d_cat_min;
-    int*   d_cat_max;
-
-    curandState* d_rng_states; ///< Estado cuRAND por hilo
+    // ── Acumuladores de métricas CUDA (en ms) ───────────────────────
+    float total_kernel_fitness_ms  = 0.f; ///< suma tiempo kernel fitness
+    float total_kernel_repro_ms    = 0.f; ///< suma tiempo kernel reproducción
+    float total_transfer_h2d_ms    = 0.f; ///< suma transferencias Host→Device
+    float total_transfer_d2h_ms    = 0.f; ///< suma transferencias Device→Host
+    long  timing_samples           = 0;   ///< número de generaciones medidas
 
     // ── Métodos internos ─────────────────────────────────────────────
-
-    /** Convierte las estructuras C++ de la instancia a arrays planos */
     void flatten_instance();
-
-    /** Reserva y copia datos de instancia a GPU (solo una vez) */
     void upload_instance();
-
-    /** Genera población inicial en CPU y la sube a GPU */
     void initialize_population() override;
-
-    /** Lanza fitness_kernel para evaluar toda la población en GPU */
-    void evaluate_population() override;
-
-    /** Lanza kernels de selección, cruzamiento y mutación */
-    void do_reproduction() override;
-
-    /** Libera toda la memoria GPU */
+    void evaluate_population()   override;
+    void do_reproduction()       override;
     void free_device_memory();
+
+    /** Mide ms entre dos cudaEvents ya registrados */
+    float elapsed_ms(cudaEvent_t start, cudaEvent_t stop);
 
 public:
     CUDABasic(KnapsackInstance& inst,
@@ -111,9 +82,24 @@ public:
               std::unique_ptr<ga::operators::Selection>           sel,
               std::unique_ptr<ga::operators::FitnessEvaluator>    fit,
               std::unique_ptr<ga::operators::ConstraintValidator> val,
-              bool verbose   = false,
-              int  seed      = 0,
-              int  block_sz  = 128);
+              bool verbose  = false,
+              int  seed     = 0,
+              int  block_sz = 128);
 
     ~CUDABasic() override;
+
+    // ── Accesores de métricas (llamados desde main después de run()) ──
+    float get_kernel_fitness_ms()  const { return total_kernel_fitness_ms; }
+    float get_kernel_repro_ms()    const { return total_kernel_repro_ms;   }
+    float get_transfer_h2d_ms()    const { return total_transfer_h2d_ms;   }
+    float get_transfer_d2h_ms()    const { return total_transfer_d2h_ms;   }
+    long  get_timing_samples()     const { return timing_samples;          }
+
+    /** Porcentaje de soluciones válidas en la población final */
+    float get_feasible_pct() const {
+        if (population.empty()) return 0.f;
+        int cnt = 0;
+        for (const auto& ind : population) if (ind.is_valid) cnt++;
+        return 100.f * cnt / (float)population.size();
+    }
 };
