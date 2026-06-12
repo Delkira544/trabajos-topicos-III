@@ -57,7 +57,7 @@ set(CMAKE_CUDA_ARCHITECTURES native)
 mkdir -p build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
+cmake --build . --config Release -j $env:NUMBER_OF_PROCESSORS
 cd ..
 ```
 
