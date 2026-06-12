@@ -12,9 +12,9 @@ namespace ga::data
     instance.category_rules =
       load_category_rules(file_path + "/category_rules.csv");
     instance.incompatibility_rules =
-      load_incompatibility_rules(file_path + "/incompatibility_rules.csv");
+      load_incompatibility_rules(file_path + "/incompatibilities.csv");
     instance.dependency_rules =
-      load_dependency_rules(file_path + "/dependency_rules.csv");
+      load_dependency_rules(file_path + "/dependencies.csv");
     return instance;
   }
 
