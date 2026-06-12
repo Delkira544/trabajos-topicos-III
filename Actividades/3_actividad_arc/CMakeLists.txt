@@ -31,7 +31,7 @@ include_directories(external)
 include_directories(src)
 
 # ── Dependencias ─────────────────────────────────────────────────────────────
-find_package(OpenMP REQUIRED)
+find_package(OpenMP COMPONENTS CXX REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 
 # ── Fuentes CUDA (kernels + solvers GPU) ─────────────────────────────────────
