@@ -141,6 +141,42 @@ for seed in 42 43 44 45 46 47 48 49 50 51; do
   done
 done
 ```
+# para windows ejecutar este una vez se haya compilado 
+
+```
+# 1. Crear la carpeta results si no existe (un nivel atrás)
+New-Item -ItemType Directory -Force -Path "../results" | Out-Null
+
+# 2. Crear el archivo CSV y escribir las cabeceras
+"instance,variant,block_size,seed,best_fitness,feasible,time_ms" | Out-File -FilePath "../results/resultados.csv" -Encoding utf8
+
+# 3. Definir las variables del experimento
+$seeds = 42..51
+$instances = @("small", "medium", "large")
+$variants = @("sequential", "cuda_basic", "cuda_optimized")
+$block = 128
+
+# 4. Ejecutar los bucles
+foreach ($seed in $seeds) {
+    foreach ($instance in $instances) {
+        foreach ($variant in $variants) {
+            Write-Host "Ejecutando -> Instancia: $instance | Variante: $variant | Seed: $seed"
+            
+            # Ejecutar y capturar la salida de consola
+            $output = .\Release\run.exe -i ../data/$instance -v $variant -t 1 -s $seed --block-size $block
+
+            # Extraer los datos usando expresiones regulares (equivalente a grep/awk)
+            $fitness = $output | Select-String -Pattern "Best fitness: ([\d\.]+)" | ForEach-Object { $_.Matches.Groups[1].Value }
+            $feasible = $output | Select-String -Pattern "Feasible: (Yes|No)" | ForEach-Object { $_.Matches.Groups[1].Value }
+            $time = $output | Select-String -Pattern "Execution time: (\d+)" | ForEach-Object { $_.Matches.Groups[1].Value }
+
+            # Guardar la línea en el CSV
+            "$instance,$variant,$block,$seed,$fitness,$feasible,$time" | Out-File -FilePath "../results/resultados.csv" -Append -Encoding utf8
+        }
+    }
+}
+
+```
 
 ---
 
