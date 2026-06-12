@@ -3,7 +3,7 @@
 
 ---
 
-## ✅ VALIDACIÓN DEL CMakeLists.txt
+##  VALIDACIÓN DEL CMakeLists.txt
 
 El `CMakeLists.txt` actual está **correctamente configurado**:
 
@@ -70,42 +70,6 @@ Si no encuentra CUDA:
 ```bash
 cmake .. -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
 ```
-
----
-
-## 4. Ejecución por variante
-
-### Variante 1 — CPU Secuencial (línea base)
-```bash
-./build/run -i data/small -v sequential -t 1 -s 42
-./build/run -i data/medium -v sequential -t 1 -s 42
-./build/run -i data/large -v sequential -t 1 -s 42
-```
-
-### Variante 2 — CUDA Básico
-```bash
-# Instancia pequeña, bloque 128
-./build/run -i data/small -v cuda_basic -t 1 -s 42 --block-size 128
-
-# Instancia mediana
-./build/run -i data/medium -v cuda_basic -t 1 -s 42 --block-size 128
-
-# Instancia grande
-./build/run -i data/large -v cuda_basic -t 1 -s 42 --block-size 128
-```
-
-### Variante 3 — CUDA Optimizado
-```bash
-./build/run -i data/small -v cuda_optimized -t 1 -s 42 --block-size 128
-./build/run -i data/medium -v cuda_optimized -t 1 -s 42 --block-size 256
-./build/run -i data/large -v cuda_optimized -t 1 -s 42 --block-size 256
-```
-
-### Con verbose para ver detalle por generación
-```bash
-./build/run -i data/small -v cuda_basic -t 1 -s 42 --verbose
-```
-
 ---
 
 ## 5. Plan Experimental Completo (SEGÚN RÚBRICA)
@@ -154,6 +118,38 @@ wmic os get totalvirtualmemory, totalvisiblememorylsize >> ../results/hardware.t
 
 ---
 
+### 5.1a ⚠️ PASO CRÍTICO: Calibrar Pesos de Penalización
+
+**ANTES de ejecutar los experimentos, debes correr el penalty_tuner una sola vez:**
+
+```powershell
+# En el directorio build, ejecuta:
+.\Release\penalty_tuner.exe -i ..\data\large -p 4096 -g 100 --verbose
+```
+
+**Esto generará output similar a:**
+```
+Best penalties found:
+  Weight: 15.5
+  Volume: 12.0
+  Category: 8.3
+  Incomp: 18.5
+  Dep: 20.0
+```
+
+**⚠️ IMPORTANTE**: Toma esos 5 valores y actualiza TODOS los comandos `$cmd` en los scripts EXP 1-4 más abajo. Reemplaza los placeholders:
+```powershell
+# De esto:
+$cmd = "...\run.exe ... --block-size 128"
+
+# A esto (con TUS valores encontrados por penalty_tuner):
+$cmd = "...\run.exe ... --pen-weight 15.5 --pen-volume 12.0 --pen-category 8.3 --pen-incomp 18.5 --pen-dep 20.0 --block-size 128"
+```
+
+**Por qué es crítico**: Sin estos parámetros, tu algoritmo usa valores hardcodeados (antiguos) y los 455 experimentos estarían ejecutándose con configuración subóptima, invalidando TODO el análisis.
+
+---
+
 ### 5.2 EXP 1: Variantes × Instancias × Poblaciones × 10 Semillas
 
 **Objetivo**: Comparar rendimiento (CPU vs GPU básico vs GPU optimizado) en 3 tamaños de instancia con 3 configuraciones de población.
@@ -196,7 +192,14 @@ foreach ($instance in $instances) {
                 $progress = [math]::Round(($current_run / $total_runs) * 100, 1)
                 Write-Host "[$progress%] EXP1 -> $instance | pop=$pop | $variant | seed=$seed"
                 
-                $cmd = ".\Release\run.exe -i ..\data\$instance -v $variant -t 1 -s $seed -p $pop -g 300 --block-size 128"
+                # ⚠️ ACTUALIZA estos valores con los resultados de penalty_tuner (ver sección 5.1a)
+                $pen_weight = 0.2      # ← CAMBIAR
+                $pen_volume = 0.2      # ← CAMBIAR
+                $pen_category = 0.2    # ← CAMBIAR
+                $pen_incomp = 0.2      # ← CAMBIAR
+                $pen_dep = 0.2         # ← CAMBIAR
+                
+                $cmd = ".\ Release\run.exe -i ..\data\$instance -v $variant -t 1 -s $seed -p $pop -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size 128"
                 $output = & $cmd 2>&1 | Out-String
                 
                 # Extraer métricas con regex robusta
@@ -262,7 +265,14 @@ foreach ($block in $block_sizes) {
             $progress = [math]::Round(($current_run / $total_runs) * 100, 1)
             Write-Host "[$progress%] EXP2 -> block=$block | $variant | seed=$seed"
             
-            $cmd = ".\Release\run.exe -i ..\data\large -v $variant -t 1 -s $seed -p 4096 -g 300 --block-size $block"
+            # ⚠️ Usa los mismos valores de penalty_tuner (ver sección 5.1a)
+            $pen_weight = 0.2      # ← ACTUALIZAR
+            $pen_volume = 0.2      # ← ACTUALIZAR
+            $pen_category = 0.2    # ← ACTUALIZAR
+            $pen_incomp = 0.2      # ← ACTUALIZAR
+            $pen_dep = 0.2         # ← ACTUALIZAR
+            
+            $cmd = ".\ Release\run.exe -i ..\data\large -v $variant -t 1 -s $seed -p 4096 -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size $block"
             $output = & $cmd 2>&1 | Out-String
             
             $fitness = if ($output -match "Best fitness:\s+([\d.-]+)") { $matches[1] } else { "" }
@@ -308,18 +318,27 @@ foreach ($instance in $instances) {
         foreach ($seed in $seeds) {
             Write-Host "EXP3 -> $instance | pop=$pop | seed=$seed"
             
+            # ⚠️ Valores de penalty_tuner (ver sección 5.1a)
+            $pen_weight = 0.2      # ← ACTUALIZAR
+            $pen_volume = 0.2      # ← ACTUALIZAR
+            $pen_category = 0.2    # ← ACTUALIZAR
+            $pen_incomp = 0.2      # ← ACTUALIZAR
+            $pen_dep = 0.2         # ← ACTUALIZAR
+            
+            $pen_flags = "--pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep"
+            
             # Sequential
-            $cmd_seq = ".\Release\run.exe -i ..\data\$instance -v sequential -t 1 -s $seed -p $pop -g 300"
+            $cmd_seq = ".\ Release\run.exe -i ..\data\$instance -v sequential -t 1 -s $seed -p $pop -g 300 $pen_flags"
             $out_seq = & $cmd_seq 2>&1 | Out-String
             $time_seq = if ($out_seq -match "Wall-clock time \(ms\):\s*(\d+)") { [int]$matches[1] } else { 0 }
             
             # CUDA Basic
-            $cmd_bas = ".\Release\run.exe -i ..\data\$instance -v cuda_basic -t 1 -s $seed -p $pop -g 300 --block-size 128"
+            $cmd_bas = ".\ Release\run.exe -i ..\data\$instance -v cuda_basic -t 1 -s $seed -p $pop -g 300 $pen_flags --block-size 128"
             $out_bas = & $cmd_bas 2>&1 | Out-String
             $time_bas = if ($out_bas -match "Wall-clock time \(ms\):\s*(\d+)") { [int]$matches[1] } else { 0 }
             
             # CUDA Optimized
-            $cmd_opt = ".\Release\run.exe -i ..\data\$instance -v cuda_optimized -t 1 -s $seed -p $pop -g 300 --block-size 128"
+            $cmd_opt = ".\ Release\run.exe -i ..\data\$instance -v cuda_optimized -t 1 -s $seed -p $pop -g 300 $pen_flags --block-size 128"
             $out_opt = & $cmd_opt 2>&1 | Out-String
             $time_opt = if ($out_opt -match "Wall-clock time \(ms\):\s*(\d+)") { [int]$matches[1] } else { 0 }
             
@@ -362,7 +381,14 @@ foreach ($pop in $populations) {
         foreach ($seed in $seeds) {
             Write-Host "EXP4 -> pop=$pop | $variant | seed=$seed"
             
-            $cmd = ".\Release\run.exe -i ..\data\$instance -v $variant -t 1 -s $seed -p $pop -g 300 --block-size 128"
+            # ⚠️ Usa los valores de penalty_tuner (ver sección 5.1a)
+            $pen_weight = 0.2      # ← ACTUALIZAR
+            $pen_volume = 0.2      # ← ACTUALIZAR
+            $pen_category = 0.2    # ← ACTUALIZAR
+            $pen_incomp = 0.2      # ← ACTUALIZAR
+            $pen_dep = 0.2         # ← ACTUALIZAR
+            
+            $cmd = ".\ Release\run.exe -i ..\data\$instance -v $variant -t 1 -s $seed -p $pop -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size 128"
             $output = & $cmd 2>&1 | Out-String
             
             $fitness = if ($output -match "Best fitness:\s+([\d.-]+)") { $matches[1] } else { "" }
@@ -564,121 +590,9 @@ for seed in 42 43 44 45 46 47 48 49 50 51; do
   done
 done
 ```
-# para windows ejecutar este una vez se haya compilado 
-```bash
-
-New-Item -ItemType Directory -Force -Path "../results" | Out-Null
-
-function Run-Experiment {
-    param($instance, $variant, $block, $seed)
-    $output = & ".\Release\run.exe" -i ../data/$instance -v $variant -t 1 -s $seed --block-size $block 2>&1
-    $fitness    = ($output | Select-String "Best fitness:\s+([\d\.]+)")              | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $feasible   = ($output | Select-String "^Feasible:\s+(Yes|No)")                  | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $wall_ms    = ($output | Select-String "Wall-clock time \(ms\):(\d+)")           | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $gens       = ($output | Select-String "Total generations: (\d+)")               | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $init_fit   = ($output | Select-String "Initial best fitness:\s+([\d\.]+)")      | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $final_fit  = ($output | Select-String "Final best fitness:\s+([\d\.]+)")        | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $fpct       = ($output | Select-String "Feasible solutions \(%\):\s+([\d\.]+)")  | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $kfit_t     = ($output | Select-String "Kernel fitness\s+total \(ms\):\s+([\d\.]+)")   | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $kfit_a     = ($output | Select-String "Kernel fitness\s+avg/gen \(ms\):\s+([\d\.]+)") | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $krepro_t   = ($output | Select-String "Kernel repro\s+total \(ms\):\s+([\d\.]+)")     | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $krepro_a   = ($output | Select-String "Kernel repro\s+avg/gen \(ms\):\s+([\d\.]+)")   | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $h2d        = ($output | Select-String "Transfer H->D\s+total \(ms\):\s+([\d\.]+)")    | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $d2h        = ($output | Select-String "Transfer D->H\s+total \(ms\):\s+([\d\.]+)")    | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    $overhead   = ($output | Select-String "Transfer overhead \(%\):\s+([\d\.]+)")          | ForEach-Object { $_.Matches.Groups[1].Value } | Select-Object -First 1
-    return @{ instance=$instance; variant=$variant; block=$block; seed=$seed; fitness=$fitness; feasible=$feasible; wall_ms=$wall_ms; gens=$gens; init_fit=$init_fit; final_fit=$final_fit; fpct=$fpct; kfit_t=$kfit_t; kfit_a=$kfit_a; krepro_t=$krepro_t; krepro_a=$krepro_a; h2d=$h2d; d2h=$d2h; overhead=$overhead }
-}
-
-# ── EXP 1: Variantes x Instancias x 10 seeds ────────────────────────────────
-$csv1 = "../results/exp1_variantes.csv"
-"instance,variant,block_size,seed,best_fitness,feasible,wall_ms,generations,init_fitness,final_fitness,feasible_pct,kfit_total_ms,kfit_avg_ms,krepro_total_ms,krepro_avg_ms,h2d_ms,d2h_ms,overhead_pct" | Out-File -FilePath $csv1 -Encoding utf8
-foreach ($seed in 42..51) {
-    foreach ($instance in @("small","medium","large")) {
-        foreach ($variant in @("sequential","cuda_basic","cuda_optimized")) {
-            Write-Host "EXP1 -> $instance | $variant | seed=$seed"
-            $r = Run-Experiment $instance $variant 128 $seed
-            "$($r.instance),$($r.variant),$($r.block),$($r.seed),$($r.fitness),$($r.feasible),$($r.wall_ms),$($r.gens),$($r.init_fit),$($r.final_fit),$($r.fpct),$($r.kfit_t),$($r.kfit_a),$($r.krepro_t),$($r.krepro_a),$($r.h2d),$($r.d2h),$($r.overhead)" | Out-File -FilePath $csv1 -Append -Encoding utf8
-        }
-    }
-}
-
-# ── EXP 2: Efecto tamaño de bloque ──────────────────────────────────────────
-$csv2 = "../results/exp2_block_size.csv"
-"instance,variant,block_size,seed,best_fitness,feasible,wall_ms,kfit_total_ms,krepro_total_ms,h2d_ms,d2h_ms,overhead_pct" | Out-File -FilePath $csv2 -Encoding utf8
-foreach ($block in @(32,64,128,256,512)) {
-    foreach ($seed in 42..46) {
-        foreach ($variant in @("cuda_basic","cuda_optimized")) {
-            Write-Host "EXP2 -> large | $variant | block=$block | seed=$seed"
-            $r = Run-Experiment "large" $variant $block $seed
-            "$($r.instance),$($r.variant),$($r.block),$($r.seed),$($r.fitness),$($r.feasible),$($r.wall_ms),$($r.kfit_t),$($r.krepro_t),$($r.h2d),$($r.d2h),$($r.overhead)" | Out-File -FilePath $csv2 -Append -Encoding utf8
-        }
-    }
-}
-
-# ── EXP 3: Speed-up ──────────────────────────────────────────────────────────
-$csv3 = "../results/exp3_speedup.csv"
-"instance,seed,time_seq_ms,time_cuda_basic_ms,time_cuda_opt_ms,speedup_cuda_basic,speedup_cuda_opt" | Out-File -FilePath $csv3 -Encoding utf8
-foreach ($instance in @("small","medium","large")) {
-    foreach ($seed in 42..51) {
-        Write-Host "EXP3 -> $instance | seed=$seed"
-        $r_seq = Run-Experiment $instance "sequential"     128 $seed
-        $r_bas = Run-Experiment $instance "cuda_basic"     128 $seed
-        $r_opt = Run-Experiment $instance "cuda_optimized" 128 $seed
-        $t_seq = [float]$r_seq.wall_ms
-        $t_bas = [float]$r_bas.wall_ms
-        $t_opt = [float]$r_opt.wall_ms
-        $sp_bas = if ($t_bas -gt 0) { [math]::Round($t_seq/$t_bas,2) } else { "" }
-        $sp_opt = if ($t_opt -gt 0) { [math]::Round($t_seq/$t_opt,2) } else { "" }
-        "$instance,$seed,$t_seq,$t_bas,$t_opt,$sp_bas,$sp_opt" | Out-File -FilePath $csv3 -Append -Encoding utf8
-    }
-}
-
-Write-Host "`nListo. Archivos generados:"
-Write-Host "  ../results/exp1_variantes.csv"
-Write-Host "  ../results/exp2_block_size.csv"
-Write-Host "  ../results/exp3_speedup.csv"
-
-```
 
 ---
 
-## 6. Medir tiempos con precisión (para el informe)
-
-### Tiempo total del programa:
-```bash
-time ./build/run -i data/large -v cuda_basic -t 1 -s 42 --block-size 128
-```
-
-### Tiempo de kernels con nvprof (versiones CUDA antiguas):
-```bash
-nvprof ./build/run -i data/medium -v cuda_basic -t 1 -s 42
-```
-
-### Tiempo de kernels con Nsight Systems (CUDA moderno, recomendado):
-```bash
-# Instalar: sudo apt install nsight-systems
-nsys profile --stats=true ./build/run -i data/medium -v cuda_basic -t 1 -s 42
-```
-
-### Tiempo de kernels con Nsight Compute (detalle por kernel):
-```bash
-ncu --target-processes all ./build/run -i data/small -v cuda_basic -t 1 -s 42
-```
-
----
-
-## 7. Verificar que la GPU está siendo usada
-
-```bash
-# En una terminal, mientras corre el programa:
-watch -n 0.5 nvidia-smi
-
-# O en la misma terminal antes de ejecutar:
-nvidia-smi dmon -s u &
-./build/run -i data/large -v cuda_basic -t 1 -s 42
-```
-
----
 
 ## 8. Errores comunes y soluciones
 
