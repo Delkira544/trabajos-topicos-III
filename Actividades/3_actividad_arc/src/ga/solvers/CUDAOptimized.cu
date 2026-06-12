@@ -28,9 +28,10 @@ CUDAOptimized::CUDAOptimized(
     std::unique_ptr<ga::operators::FitnessEvaluator>    fit,
     std::unique_ptr<ga::operators::ConstraintValidator> val,
     bool verbose, int seed, int block_sz,
-    bool const_mem, bool streams, bool shared_reduce)
+    bool const_mem, bool streams, bool shared_reduce,
+    size_t pop_size, size_t num_gens)
     : CUDABasic(inst, std::move(cross), std::move(mut), std::move(sel),
-                std::move(fit), std::move(val), verbose, seed, block_sz),
+                std::move(fit), std::move(val), verbose, seed, block_sz, pop_size, num_gens),
       use_const_memory(const_mem),
       use_streams(streams),
       use_shared_reduce(shared_reduce),

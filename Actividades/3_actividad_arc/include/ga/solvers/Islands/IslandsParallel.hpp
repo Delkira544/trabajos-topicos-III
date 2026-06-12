@@ -177,9 +177,10 @@ class IslandsParallel : public BaseGA
     std::unique_ptr<ga::operators::Selection> sel           = nullptr,
     std::unique_ptr<ga::operators::FitnessEvaluator> fit    = nullptr,
     std::unique_ptr<ga::operators::ConstraintValidator> val = nullptr,
-    bool verbose = false, int seed = 0)
+    bool verbose = false, int seed = 0,
+    size_t pop_size = 0, size_t num_gens = 0)
     : BaseGA(inst, std::move(cross), std::move(mut), std::move(sel),
-             std::move(fit), std::move(val), verbose, seed),
+             std::move(fit), std::move(val), verbose, seed, pop_size, num_gens),
       num_islands(num_isl), num_threads(num_th),
       migration_interval(mig_interval)
   {

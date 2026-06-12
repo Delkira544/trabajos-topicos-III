@@ -44,9 +44,10 @@ CUDABasic::CUDABasic(KnapsackInstance& inst,
                      std::unique_ptr<ga::operators::Selection>           sel,
                      std::unique_ptr<ga::operators::FitnessEvaluator>    fit,
                      std::unique_ptr<ga::operators::ConstraintValidator> val,
-                     bool verbose, int seed, int block_sz)
+                     bool verbose, int seed, int block_sz,
+                     size_t pop_size, size_t num_gens)
     : BaseGA(inst, std::move(cross), std::move(mut), std::move(sel),
-             std::move(fit), std::move(val), verbose, seed),
+             std::move(fit), std::move(val), verbose, seed, pop_size, num_gens),
       block_size(block_sz),
       d_population(nullptr), d_offspring(nullptr),
       d_fitness(nullptr),    d_penalty(nullptr),

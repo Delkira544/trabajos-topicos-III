@@ -246,8 +246,9 @@ class BaseGA : public GeneticSolver
          std::unique_ptr<ga::operators::Selection> sel,
          std::unique_ptr<ga::operators::FitnessEvaluator> fit,
          std::unique_ptr<ga::operators::ConstraintValidator> val,
-         bool verbose = false, int seed = 0)
-    : GeneticSolver(inst, seed), crossover_op(std::move(cross)),
+         bool verbose = false, int seed = 0, 
+         size_t pop_size = 0, size_t num_gens = 0)
+    : GeneticSolver(inst, pop_size, num_gens, seed), crossover_op(std::move(cross)),
       mutation_op(std::move(mut)), selection_op(std::move(sel)),
       fitness_evaluator(std::move(fit)), validator(std::move(val))
   {

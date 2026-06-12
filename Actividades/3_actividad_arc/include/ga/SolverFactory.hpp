@@ -56,21 +56,22 @@ class SolverFactory
       return std::make_unique<Sequential>(
         instance, std::move(crossover), std::move(mutation),
         std::move(selection), std::move(fitness), std::move(validator),
-        config.verbose, config.seed);
+        config.verbose, config.seed, config.population_size, config.num_generations);
     }
     else if (variant == "parallel")
     {
       return std::make_unique<Parallel>(
         instance, config.num_threads, std::move(crossover), std::move(mutation),
         std::move(selection), std::move(fitness), std::move(validator),
-        config.verbose, config.seed);
+        config.verbose, config.seed, config.population_size, config.num_generations);
     }
     else if (variant == "islands_sequential")
     {
       return std::make_unique<IslandsSequential>(
         instance, config.num_islands, config.migration_interval,
         std::move(crossover), std::move(mutation), std::move(selection),
-        std::move(fitness), std::move(validator), config.verbose, config.seed);
+        std::move(fitness), std::move(validator), config.verbose, config.seed,
+        config.population_size, config.num_generations);
     }
     else if (variant == "islands_parallel")
     {
@@ -78,14 +79,14 @@ class SolverFactory
         instance, config.num_islands, config.num_threads,
         config.migration_interval, std::move(crossover), std::move(mutation),
         std::move(selection), std::move(fitness), std::move(validator),
-        config.verbose, config.seed);
+        config.verbose, config.seed, config.population_size, config.num_generations);
     }
     else if (variant == "cuda_basic")
     {
       auto solver = std::make_unique<CUDABasic>(
         instance, std::move(crossover), std::move(mutation),
         std::move(selection), std::move(fitness), std::move(validator),
-        config.verbose, config.seed, config.block_size);
+        config.verbose, config.seed, config.block_size, config.population_size, config.num_generations);
       solver->set_penalty_weights(config.penalty_weight, config.penalty_volume,
                                    config.penalty_category, config.penalty_incomp,
                                    config.penalty_dep);
@@ -96,7 +97,8 @@ class SolverFactory
       auto solver = std::make_unique<CUDAOptimized>(
         instance, std::move(crossover), std::move(mutation),
         std::move(selection), std::move(fitness), std::move(validator),
-        config.verbose, config.seed, config.block_size);
+        config.verbose, config.seed, config.block_size, true, true, true,
+        config.population_size, config.num_generations);
       solver->set_penalty_weights(config.penalty_weight, config.penalty_volume,
                                    config.penalty_category, config.penalty_incomp,
                                    config.penalty_dep);

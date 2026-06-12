@@ -84,7 +84,9 @@ public:
               std::unique_ptr<ga::operators::ConstraintValidator> val,
               bool verbose  = false,
               int  seed     = 0,
-              int  block_sz = 128);
+              int  block_sz = 128,
+              size_t pop_size = 0,
+              size_t num_gens = 0);
 
     ~CUDABasic() override;
 

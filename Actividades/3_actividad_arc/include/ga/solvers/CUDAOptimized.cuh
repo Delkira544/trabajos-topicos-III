@@ -66,7 +66,9 @@ public:
                   int  block_sz       = 128,
                   bool const_mem      = true,
                   bool streams        = true,
-                  bool shared_reduce  = true);
+                  bool shared_reduce  = true,
+                  size_t pop_size     = 0,
+                  size_t num_gens     = 0);
 
     ~CUDAOptimized() override;
 

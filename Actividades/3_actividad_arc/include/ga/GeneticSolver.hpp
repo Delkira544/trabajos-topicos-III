@@ -64,11 +64,15 @@ class GeneticSolver
   std::vector<float> fitness_history;
 
   public:
-  GeneticSolver(KnapsackInstance& instance, int seed = 0)
+  GeneticSolver(KnapsackInstance& instance, 
+               size_t pop_size = 0,
+               size_t num_gens = 0, 
+               int seed = 0)
   {
     this->instance        = instance;
-    this->population_size = Config::GeneticAlgorithm::POPULATION_SIZE;
-    this->generations     = Config::GeneticAlgorithm::GENERATIONS;
+    // Usar parámetros o defaults si son 0
+    this->population_size = (pop_size > 0) ? pop_size : Config::GeneticAlgorithm::POPULATION_SIZE;
+    this->generations     = (num_gens > 0) ? num_gens : Config::GeneticAlgorithm::GENERATIONS;
     this->mutation_rate   = Config::GeneticAlgorithm::MUTATION_RATE;
     this->crossover_rate  = Config::GeneticAlgorithm::CROSSOVER_RATE;
     rng.seed(seed);

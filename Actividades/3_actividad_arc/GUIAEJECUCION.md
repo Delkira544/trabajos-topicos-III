@@ -124,7 +124,8 @@ wmic os get totalvirtualmemory, totalvisiblememorylsize >> ../results/hardware.t
 
 ```powershell
 # En el directorio build, ejecuta:
-.\Release\penalty_tuner.exe -i ..\data\large -p 4096 -g 100 --verbose
+cd build
+.\Release\penalty_tuner.exe -i ..\data\large -p 4096 -g 100 
 ```
 
 **Esto generará output similar a:**
@@ -540,37 +541,6 @@ cd .\build
 
 ---
 
-## 6. Métricas Extraídas Automáticamente (para el Informe)
-```bash
-./build/run -i data/medium -v sequential    -t 1 -s 42
-./build/run -i data/medium -v cuda_basic    -t 1 -s 42 --block-size 128
-./build/run -i data/medium -v cuda_optimized -t 1 -s 42 --block-size 128
-```
-
-### 5.2 Efecto del tamaño de bloque (instancia grande, cuda_basic)
-```bash
-./build/run -i data/large -v cuda_basic -t 1 -s 42 --block-size 32
-./build/run -i data/large -v cuda_basic -t 1 -s 42 --block-size 64
-./build/run -i data/large -v cuda_basic -t 1 -s 42 --block-size 128
-./build/run -i data/large -v cuda_basic -t 1 -s 42 --block-size 256
-./build/run -i data/large -v cuda_basic -t 1 -s 42 --block-size 512
-```
-
-### 5.3 Efecto del tamaño de instancia (bloque 128, 10 repeticiones)
-```bash
-for seed in 42 43 44 45 46 47 48 49 50 51; do
-  ./build/run -i data/small  -v sequential    -t 1 -s $seed
-  ./build/run -i data/small  -v cuda_basic    -t 1 -s $seed --block-size 128
-  ./build/run -i data/small  -v cuda_optimized -t 1 -s $seed --block-size 128
-  ./build/run -i data/medium -v sequential    -t 1 -s $seed
-  ./build/run -i data/medium -v cuda_basic    -t 1 -s $seed --block-size 128
-  ./build/run -i data/medium -v cuda_optimized -t 1 -s $seed --block-size 128
-  ./build/run -i data/large  -v sequential    -t 1 -s $seed
-  ./build/run -i data/large  -v cuda_basic    -t 1 -s $seed --block-size 128
-  ./build/run -i data/large  -v cuda_optimized -t 1 -s $seed --block-size 128
-done
-```
-
 ### 5.4 Guardar resultados en CSV automáticamente
 ```bash
 # Script bash para recolectar resultados
@@ -606,19 +576,3 @@ done
 | Resultado siempre inválido | Penalizaciones muy bajas | Revisar constants.hpp Penalty |
 
 ---
-
-## 9. Hardware a reportar en el informe
-
-```bash
-# CPU
-lscpu | grep "Model name"
-
-# GPU
-nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
-
-# Versión CUDA
-nvcc --version
-
-# RAM
-free -h
-```
