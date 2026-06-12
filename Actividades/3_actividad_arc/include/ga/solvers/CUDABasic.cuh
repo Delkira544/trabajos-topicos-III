@@ -88,6 +88,15 @@ public:
 
     ~CUDABasic() override;
 
+    // ── Setter para pesos de penalización (desde SolverConfig) ──────
+    void set_penalty_weights(float w, float v, float c, float i, float d) {
+        pen_weight = w;
+        pen_volume = v;
+        pen_category = c;
+        pen_incomp = i;
+        pen_dep = d;
+    }
+
     // ── Accesores de métricas (llamados desde main después de run()) ──
     float get_kernel_fitness_ms()  const { return total_kernel_fitness_ms; }
     float get_kernel_repro_ms()    const { return total_kernel_repro_ms;   }

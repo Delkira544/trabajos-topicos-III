@@ -99,6 +99,7 @@ class PenaltyTuner
   std::string instance_path;
   int num_seeds;
   size_t tuning_generations = 50;  // Reducidas para tuning rápido
+  size_t tuning_population = 1000; // Tamaño de población para tuning
 
   public:
   /**
@@ -163,4 +164,14 @@ class PenaltyTuner
    * @brief Retorna el número de generaciones para tuning
    */
   size_t get_tuning_generations() const { return tuning_generations; }
+
+  /**
+   * @brief Establece el tamaño de la población para tuning (default: 1000)
+   */
+  void set_tuning_population(size_t pop) { tuning_population = pop; }
+
+  /**
+   * @brief Retorna el tamaño de la población para tuning
+   */
+  size_t get_tuning_population() const { return tuning_population; }
 };

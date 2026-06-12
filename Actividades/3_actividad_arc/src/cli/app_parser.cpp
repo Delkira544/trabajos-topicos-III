@@ -67,6 +67,48 @@ void configurar_cli(CLI::App& app, AppConfig& config)
     ->default_val(128)
     ->check(CLI::IsMember({32, 64, 128, 256, 512, 1024}));
 
+  app
+    .add_option("-p,--pop", config.population_size,
+                "Tamaño de la poblacion")
+    ->default_val(100)
+    ->check(CLI::PositiveNumber);
+
+  app
+    .add_option("-g,--gen", config.num_generations,
+                "Numero total de generaciones")
+    ->default_val(300)
+    ->check(CLI::PositiveNumber);
+
+  app
+    .add_option("--pen-weight", config.penalty_weight,
+                "Penalizacion por exceso de peso (default: 0.2)")
+    ->default_val(0.2f)
+    ->check(CLI::Range(0.0f, 1.0f));
+
+  app
+    .add_option("--pen-volume", config.penalty_volume,
+                "Penalizacion por exceso de volumen (default: 0.2)")
+    ->default_val(0.2f)
+    ->check(CLI::Range(0.0f, 1.0f));
+
+  app
+    .add_option("--pen-category", config.penalty_category,
+                "Penalizacion por violacion de categoria (default: 0.2)")
+    ->default_val(0.2f)
+    ->check(CLI::Range(0.0f, 1.0f));
+
+  app
+    .add_option("--pen-incomp", config.penalty_incomp,
+                "Penalizacion por incompatibilidad (default: 0.2)")
+    ->default_val(0.2f)
+    ->check(CLI::Range(0.0f, 1.0f));
+
+  app
+    .add_option("--pen-dep", config.penalty_dep,
+                "Penalizacion por dependencia no satisfecha (default: 0.2)")
+    ->default_val(0.2f)
+    ->check(CLI::Range(0.0f, 1.0f));
+
   app.add_flag("--verbose", config.verbose,
                "Mostrar información detallada durante la ejecución");
 }

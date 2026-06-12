@@ -89,6 +89,8 @@ PenaltyTuner::evaluate_config(const PenaltyConfig& config, int seed)
   solver_config.crossover_rate     = 0.7f;
   solver_config.mutation_rate      = 0.04f;
   solver_config.tournament_size    = 3;
+  solver_config.population_size    = tuning_population;
+  solver_config.num_generations    = tuning_generations;
   solver_config.seed               = seed;
   solver_config.verbose            = false; // Sin output durante tuning
 

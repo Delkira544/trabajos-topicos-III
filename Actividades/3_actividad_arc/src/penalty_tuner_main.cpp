@@ -14,6 +14,7 @@ int main(int argc, char** argv)
   int num_seeds   = 2;
   int top_n       = 30;
   size_t generations = 50;  // Reducidas para tuning rápido
+  size_t population = 1000; // Tamaño de población para tuning
   std::string output_file = "results/penalty_search_results.csv";
 
   std::cout << "[LOG] Setting up CLI options..." << std::endl;
@@ -38,6 +39,10 @@ int main(int argc, char** argv)
                  "Generations for each AG during tuning (default: 50)")
     ->default_val(50);
 
+  app.add_option("-p,--pop", population,
+                 "Population size for tuning (default: 1000)")
+    ->default_val(1000);
+
   app.add_option("-o,--output", output_file,
                  "Output CSV file for results (default: results/penalty_search_results.csv)")
     ->default_val("results/penalty_search_results.csv");
@@ -54,6 +59,7 @@ int main(int argc, char** argv)
   std::cout << "  - Number of seeds: " << num_seeds << std::endl;
   std::cout << "  - Top N: " << top_n << std::endl;
   std::cout << "  - Generations per AG: " << generations << std::endl;
+  std::cout << "  - Population size: " << population << std::endl;
   std::cout << "  - Output file: " << output_file << std::endl;
   std::cout.flush();
 
@@ -68,8 +74,12 @@ int main(int argc, char** argv)
     // Establecer generaciones para tuning
     tuner.set_tuning_generations(generations);
 
+    // Establecer población para tuning
+    tuner.set_tuning_population(population);
+
     std::cout << "[LOG] PenaltyTuner created successfully" << std::endl;
     std::cout << "[LOG] Tuning generations set to: " << generations << std::endl;
+    std::cout << "[LOG] Tuning population set to: " << population << std::endl;
     std::cout.flush();
 
     // Ejecutar búsqueda
@@ -87,6 +97,13 @@ int main(int argc, char** argv)
     std::cout.flush();
 
     tuner.print_top_n(top_n);
+
+    // Mostrar cómo usar los pesos óptimos encontrados
+    std::cout << "\n[INFO] Para usar los pesos óptimos encontrados, ejecuta:" << std::endl;
+    std::cout << "  ./run -i <instance> -v <variant> -t <threads> -s <seed> \\" << std::endl;
+    std::cout << "    --pen-weight <valor> --pen-volume <valor> --pen-category <valor> \\" << std::endl;
+    std::cout << "    --pen-incomp <valor> --pen-dep <valor>" << std::endl;
+    std::cout.flush();
 
     // Guardar CSV
     std::cout << "\n[LOG] Saving results to CSV..." << std::endl;

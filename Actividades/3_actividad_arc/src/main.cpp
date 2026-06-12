@@ -31,6 +31,13 @@ int main(int argc, char** argv)
     std::cout << "Crossover rate: " << config.crossover_rate  << "\n";
     std::cout << "Mutation rate:  " << config.mutation_rate   << "\n";
     std::cout << "Tournament size:" << config.tournament_size << "\n";
+    std::cout << "Population size:" << config.population_size << "\n";
+    std::cout << "Generations:    " << config.num_generations << "\n";
+    std::cout << "Penalty weight: " << config.penalty_weight  << "\n";
+    std::cout << "Penalty volume: " << config.penalty_volume  << "\n";
+    std::cout << "Penalty category: " << config.penalty_category << "\n";
+    std::cout << "Penalty incomp: " << config.penalty_incomp  << "\n";
+    std::cout << "Penalty dep:    " << config.penalty_dep     << "\n";
 
     bool is_cuda = (config.variant == "cuda_basic" ||
                     config.variant == "cuda_optimized");
@@ -56,6 +63,13 @@ int main(int argc, char** argv)
         sc.seed               = config.seed;
         sc.verbose            = config.verbose;
         sc.block_size         = config.block_size;
+        sc.population_size    = config.population_size;
+        sc.num_generations    = config.num_generations;
+        sc.penalty_weight     = config.penalty_weight;
+        sc.penalty_volume     = config.penalty_volume;
+        sc.penalty_category   = config.penalty_category;
+        sc.penalty_incomp     = config.penalty_incomp;
+        sc.penalty_dep        = config.penalty_dep;
 
         // ── Medir tiempo total con chrono ────────────────────────────
         auto wall_start = std::chrono::high_resolution_clock::now();

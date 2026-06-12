@@ -28,6 +28,13 @@ class SolverFactory
     float mutation_rate    = 0.04f;
     int tournament_size    = 3;
     int block_size         = 128;   // tamaño de bloque CUDA
+    int population_size    = 100;   // Tamaño de la población
+    int num_generations    = 300;   // Número total de generaciones
+    float penalty_weight   = 0.2f;  // Penalización por exceso de peso
+    float penalty_volume   = 0.2f;  // Penalización por exceso de volumen
+    float penalty_category = 0.2f;  // Penalización por violación de categoría
+    float penalty_incomp   = 0.2f;  // Penalización por incompatibilidad
+    float penalty_dep      = 0.2f;  // Penalización por dependencia
     int seed               = 0;
     bool verbose           = false;
   };
@@ -75,17 +82,25 @@ class SolverFactory
     }
     else if (variant == "cuda_basic")
     {
-      return std::make_unique<CUDABasic>(
+      auto solver = std::make_unique<CUDABasic>(
         instance, std::move(crossover), std::move(mutation),
         std::move(selection), std::move(fitness), std::move(validator),
         config.verbose, config.seed, config.block_size);
+      solver->set_penalty_weights(config.penalty_weight, config.penalty_volume,
+                                   config.penalty_category, config.penalty_incomp,
+                                   config.penalty_dep);
+      return solver;
     }
     else if (variant == "cuda_optimized")
     {
-      return std::make_unique<CUDAOptimized>(
+      auto solver = std::make_unique<CUDAOptimized>(
         instance, std::move(crossover), std::move(mutation),
         std::move(selection), std::move(fitness), std::move(validator),
         config.verbose, config.seed, config.block_size);
+      solver->set_penalty_weights(config.penalty_weight, config.penalty_volume,
+                                   config.penalty_category, config.penalty_incomp,
+                                   config.penalty_dep);
+      return solver;
     }
     else
     {
