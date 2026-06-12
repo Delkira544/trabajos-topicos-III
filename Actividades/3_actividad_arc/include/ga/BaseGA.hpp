@@ -277,7 +277,7 @@ class BaseGA : public GeneticSolver
     fitness_history.push_back(best_individual.fitness);
 
     size_t gen = 0;
-    while (true)
+    while (gen < generations)
     {
       current_generation = gen;
 
