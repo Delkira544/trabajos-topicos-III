@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <random>
+#include <numeric>
 
 class GeneticSolver
 {
