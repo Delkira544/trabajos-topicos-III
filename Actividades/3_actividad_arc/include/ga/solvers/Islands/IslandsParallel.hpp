@@ -119,13 +119,16 @@ class IslandsParallel : public BaseGA
       }
     }
 
-    // Intercambiar mejores individuos en forma cíclica
-    Individual temp = islands[0][best_indices[0]];
-    for (int i = 0; i < num_islands - 1; ++i)
+    // Intercambiar mejores individuos en forma cíclica (con sincronización crítica)
+    #pragma omp critical
     {
-      islands[i][best_indices[i]] = islands[i + 1][best_indices[i + 1]];
+      Individual temp = islands[0][best_indices[0]];
+      for (int i = 0; i < num_islands - 1; ++i)
+      {
+        islands[i][best_indices[i]] = islands[i + 1][best_indices[i + 1]];
+      }
+      islands[num_islands - 1][best_indices[num_islands - 1]] = temp;
     }
-    islands[num_islands - 1][best_indices[num_islands - 1]] = temp;
   }
 
   void initialize_population() override

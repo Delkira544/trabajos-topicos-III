@@ -6,7 +6,7 @@ struct AppConfig
 {
   std::string instance;
   std::string variant;
-  short threads;
+  int threads;
   int seed;
   int num_islands        = 4;
   int migration_interval = 5;

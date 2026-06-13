@@ -26,11 +26,12 @@ namespace ga::operators
 
       std::uniform_int_distribution<size_t> dist(0, population.size() - 1);
 
-      // Seleccionar tournament_size individuos aleatorios
+      // Seleccionar tournament_size individuos aleatorios (o menos si population es pequeña)
       size_t best_idx    = dist(rng);
       float best_fitness = population[best_idx].fitness;
-
-      for (size_t i = 1; i < tournament_size && i < population.size(); ++i)
+      
+      size_t actual_tournament_size = std::min(tournament_size, population.size());
+      for (size_t i = 1; i < actual_tournament_size; ++i)
       {
         size_t idx = dist(rng);
         if (population[idx].fitness > best_fitness)

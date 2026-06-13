@@ -32,6 +32,11 @@ namespace ga::operators
         return child;
       }
 
+      // Validar que los cromosomas no estén vacíos
+      if (parent1.chromosome.empty() || parent2.chromosome.empty()) {
+        throw std::logic_error("Cannot apply crossover to empty chromosome");
+      }
+      
       // Seleccionar punto de corte aleatorio
       std::uniform_int_distribution<size_t> point_dist(
         0, parent1.chromosome.size() - 1);

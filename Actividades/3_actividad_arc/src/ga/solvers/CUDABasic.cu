@@ -104,19 +104,39 @@ void CUDABasic::flatten_instance()
     n_incomp = (int)instance.incompatibility_rules.size();
     h_incomp_a.resize(n_incomp); h_incomp_b.resize(n_incomp);
     for (int r = 0; r < n_incomp; ++r) {
-        h_incomp_a[r] = id2idx.count(instance.incompatibility_rules[r].item_id_a)
-                        ? id2idx[instance.incompatibility_rules[r].item_id_a] : 0;
-        h_incomp_b[r] = id2idx.count(instance.incompatibility_rules[r].item_id_b)
-                        ? id2idx[instance.incompatibility_rules[r].item_id_b] : 0;
+        if (!id2idx.count(instance.incompatibility_rules[r].item_id_a)) {
+            throw std::runtime_error(
+                "Incompatibility rule references non-existent item_id_a: " +
+                std::to_string(instance.incompatibility_rules[r].item_id_a)
+            );
+        }
+        if (!id2idx.count(instance.incompatibility_rules[r].item_id_b)) {
+            throw std::runtime_error(
+                "Incompatibility rule references non-existent item_id_b: " +
+                std::to_string(instance.incompatibility_rules[r].item_id_b)
+            );
+        }
+        h_incomp_a[r] = id2idx[instance.incompatibility_rules[r].item_id_a];
+        h_incomp_b[r] = id2idx[instance.incompatibility_rules[r].item_id_b];
     }
 
     n_dep = (int)instance.dependency_rules.size();
     h_dep_a.resize(n_dep); h_dep_b.resize(n_dep);
     for (int r = 0; r < n_dep; ++r) {
-        h_dep_a[r] = id2idx.count(instance.dependency_rules[r].item_id_a)
-                     ? id2idx[instance.dependency_rules[r].item_id_a] : 0;
-        h_dep_b[r] = id2idx.count(instance.dependency_rules[r].item_id_b)
-                     ? id2idx[instance.dependency_rules[r].item_id_b] : 0;
+        if (!id2idx.count(instance.dependency_rules[r].item_id_a)) {
+            throw std::runtime_error(
+                "Dependency rule references non-existent item_id_a: " +
+                std::to_string(instance.dependency_rules[r].item_id_a)
+            );
+        }
+        if (!id2idx.count(instance.dependency_rules[r].item_id_b)) {
+            throw std::runtime_error(
+                "Dependency rule references non-existent item_id_b: " +
+                std::to_string(instance.dependency_rules[r].item_id_b)
+            );
+        }
+        h_dep_a[r] = id2idx[instance.dependency_rules[r].item_id_a];
+        h_dep_b[r] = id2idx[instance.dependency_rules[r].item_id_b];
     }
 
     n_cat_rules = (int)instance.category_rules.size();

@@ -87,17 +87,22 @@ __device__ void repair_chromosome_gpu(
         if (current_w > max_weight || current_v > max_volume) {
             is_valid = false;
             int worst_idx = -1;
-            float worst_eff = 1e9f; // Infinito
+            float worst_eff = -1.0f;  // Inicializar a -1 (mejor que cualquier eficiencia)
 
             for (int i = 0; i < n_items; ++i) {
                 if (child_genes[i]) {
                     float cost = weights[i] + volumes[i];
                     float eff = (cost > 0) ? values[i] / cost : 0.0f;
-                    if (eff < worst_eff) {
+                    if (worst_idx == -1 || eff < worst_eff) {
                         worst_eff = eff;
                         worst_idx = i;
                     }
                 }
+            }
+
+            // Solo remover si encontramos un item válido
+            if (worst_idx >= 0) {
+                child_genes[worst_idx] = 0;
             }
 
             if (worst_idx >= 0) {

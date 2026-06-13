@@ -49,5 +49,5 @@ struct Individual
   bool is_valid;
   float penalty;
 
-  Individual() : fitness(0.0f), is_valid(false), hard_feasible(false) {}
+  Individual() : fitness(0.0f), penalty(0.0f), is_valid(false), hard_feasible(false) {}
 };

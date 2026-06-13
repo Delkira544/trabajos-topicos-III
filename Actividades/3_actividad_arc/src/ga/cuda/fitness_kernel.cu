@@ -162,6 +162,28 @@ __global__ void fitness_kernel_opt(
         float volume_excess = (total_volume > c_params.max_volume)
                               ? (total_volume - c_params.max_volume) : 0.f;
 
+        // ── Violaciones de categoría ──────────────────────────────────
+        int cat_counts[64] = {0};
+        for (int g = 0; g < c_params.n_items; ++g) {
+            if (chrom[g]) {
+                int cid = c_cat_ids[g];
+                if (cid >= 0 && cid < 64) cat_counts[cid]++;
+            }
+        }
+
+        int errors_cat = 0;
+        // Nota: para fitness_kernel_opt se asume que c_params contiene cat_rule_id, cat_rule_min, cat_rule_max
+        // Como no tenemos acceso directo, usamos el enfoque de contar de genes
+        // (esta es una limitación de usar solo memoria constante para datos grandes)
+        
+        // ── Violaciones de incompatibilidad ───────────────────────────────
+        int errors_incomp = 0;
+        // Nota: no podemos validar sin acceso a incomp_a y incomp_b en memoria constante
+        
+        // ── Violaciones de dependencia ────────────────────────────────────
+        int errors_dep = 0;
+        // Nota: no podemos validar sin acceso a dep_a y dep_b en memoria constante
+
         float norm_value = (c_params.max_value > 0.f)
                            ? (total_value / c_params.max_value) : 0.f;
         float nw = (c_params.max_weight > 0.f)
@@ -175,6 +197,9 @@ __global__ void fitness_kernel_opt(
         penalty  [ind] = viol;
         fitness  [ind] = c_params.obj_w * norm_value - c_params.pen_w * viol;
         hard_feas[ind] = (weight_excess == 0.f && volume_excess == 0.f) ? 1u : 0u;
+        // IMPORTANTE: fitness_kernel_opt solo valida peso y volumen
+        // Para validación completa (categorías, incompatibilidades, dependencias),
+        // se debe usar fitness_kernel con memoria global
         is_valid [ind] = hard_feas[ind];
     }
 }

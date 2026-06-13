@@ -57,9 +57,8 @@ namespace ga::data
       return items;
     } catch (const std::exception& e)
     {
-      std::cout << "Error al cargar los items: " << e.what() << std::endl;
+      throw std::runtime_error("Failed to load items from " + file_path + ": " + e.what());
     }
-    return {};
   }
 
   std::unordered_map<std::string, CategoryRule>
@@ -77,12 +76,11 @@ namespace ga::data
         int max                  = doc.GetCell<int>("max", i);
         category_rules[category] = {min, max};
       }
+      return category_rules;
     } catch (const std::exception& e)
     {
-      std::cout << "Error al cargar las reglas de categoría: " << e.what()
-                << std::endl;
+      throw std::runtime_error("Failed to load category rules from " + file_path + ": " + e.what());
     }
-    return {};
   }
 
   std::vector<IncompatibilityRule> InstanceLoader::load_incompatibility_rules(
@@ -104,10 +102,8 @@ namespace ga::data
       return incompatibility_rules;
     } catch (const std::exception& e)
     {
-      std::cout << "Error al cargar las reglas de incompatibilidad: "
-                << e.what() << std::endl;
+      throw std::runtime_error("Failed to load incompatibility rules from " + file_path + ": " + e.what());
     }
-    return {};
   }
 
   std::vector<DependencyRule> InstanceLoader::load_dependency_rules(
@@ -129,9 +125,7 @@ namespace ga::data
       return dependency_rules;
     } catch (const std::exception& e)
     {
-      std::cout << "Error al cargar las reglas de dependencia: " << e.what()
-                << std::endl;
+      throw std::runtime_error("Failed to load dependency rules from " + file_path + ": " + e.what());
     }
-    return {};
   }
 } // namespace ga::data
