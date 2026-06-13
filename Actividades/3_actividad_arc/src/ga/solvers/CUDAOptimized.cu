@@ -186,7 +186,13 @@ void CUDAOptimized::do_reproduction()
         (int)pop_sz, n_items,
         3,   // tournament_size
         crossover_op->get_crossover_rate(),
-        mutation_op->get_mutation_rate());
+        mutation_op->get_mutation_rate(),
+        // ─── Punteros adicionales para reparación ──────
+        d_values, d_weights, d_volumes,
+        d_incomp_a, d_incomp_b,
+        d_dep_a, d_dep_b,
+        (int)instance.max_weight, (int)instance.max_volume,
+        n_incomp, n_dep);
 
     if (use_streams) {
         CUDA_CHECK(cudaStreamSynchronize(stream_repro));

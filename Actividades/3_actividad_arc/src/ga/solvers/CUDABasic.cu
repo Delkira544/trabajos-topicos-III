@@ -287,7 +287,13 @@ void CUDABasic::do_reproduction()
         d_population, d_offspring, d_fitness, d_rng_states,
         (int)pop_sz, n_items, 3,
         crossover_op->get_crossover_rate(),
-        mutation_op->get_mutation_rate());
+        mutation_op->get_mutation_rate(),
+        // ─── Punteros adicionales para reparación ──────
+        d_values, d_weights, d_volumes,
+        d_incomp_a, d_incomp_b,
+        d_dep_a, d_dep_b,
+        (int)instance.max_weight, (int)instance.max_volume,
+        n_incomp, n_dep);
     cudaEventRecord(k1);
     total_kernel_repro_ms += elapsed_ms(k0, k1);
     EVENT_DESTROY(k0, k1);

@@ -25,6 +25,7 @@ __global__ void init_rng_kernel(
 //   2. Torneo entre tournament_size candidatos aleatorios → padre2
 //   3. Cruzamiento de un punto (si rand < crossover_rate)
 //   4. Mutación uniforme bit-flip (por gen, si rand < mutation_rate)
+//   5. Reparación de restricciones (incompatibilidades, dependencias, capacidades)
 // ─────────────────────────────────────────────────────────────────────────────
 __global__ void reproduce_kernel(
     const uint8_t* __restrict__ population,  // [pop_size * n_items] entrada
@@ -35,7 +36,19 @@ __global__ void reproduce_kernel(
     int   n_items,
     int   tournament_size,
     float crossover_rate,
-    float mutation_rate
+    float mutation_rate,
+    // ─── Punteros adicionales para reparación ──────
+    const float*   __restrict__ values,      // [n_items]
+    const float*   __restrict__ weights,     // [n_items]
+    const float*   __restrict__ volumes,     // [n_items]
+    const int*     __restrict__ incomp_a,    // [n_incomp]
+    const int*     __restrict__ incomp_b,    // [n_incomp]
+    const int*     __restrict__ dep_a,       // [n_dep]
+    const int*     __restrict__ dep_b,       // [n_dep]
+    int   max_weight,
+    int   max_volume,
+    int   n_incomp,
+    int   n_dep
 );
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -31,7 +31,19 @@ __global__ void reproduce_kernel(
     int   n_items,
     int   tournament_size,
     float crossover_rate,
-    float mutation_rate)
+    float mutation_rate,
+    // ─── Punteros adicionales para reparación ──────
+    const float*   __restrict__ values,
+    const float*   __restrict__ weights,
+    const float*   __restrict__ volumes,
+    const int*     __restrict__ incomp_a,
+    const int*     __restrict__ incomp_b,
+    const int*     __restrict__ dep_a,
+    const int*     __restrict__ dep_b,
+    int   max_weight,
+    int   max_volume,
+    int   n_incomp,
+    int   n_dep)
 {
     int ind = blockIdx.x * blockDim.x + threadIdx.x;
     if (ind >= pop_size) return;
@@ -82,6 +94,16 @@ __global__ void reproduce_kernel(
         // ch[g] = ch[g] XOR (r_mut < mutation_rate ? 1 : 0)
         ch[g] ^= (r_mut < mutation_rate) ? 1 : 0;
     }
+
+    // ── Reparación POST-mutación ──────────────────────────────────────
+    __syncthreads();  // Esperar a todos los hilos antes de reparación
+    repair_chromosome_gpu(
+        ch, n_items,
+        values, weights, volumes,
+        incomp_a, incomp_b, n_incomp,
+        dep_a, dep_b, n_dep,
+        max_weight, max_volume);
+    __syncthreads();
 
     // Guardar estado cuRAND actualizado
     rng_states[ind] = local_state;
