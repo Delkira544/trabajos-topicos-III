@@ -44,10 +44,10 @@ class Sequential : public BaseGA
       mutation_op->apply(child, rng);
 
       // Reparación si es necesario
-      // f (!validator->is_feasible(child, instance))
-      //{
-      //  validator->repair(child, instance);
-      //}
+      if (!validator->is_feasible(child, instance))
+      {
+        validator->repair(child, instance);
+      }
 
       offspring.push_back(child);
     }

@@ -53,10 +53,10 @@ class Parallel : public BaseGA
       mutation_op->apply(child, local_rng);
 
       // Reparación si es necesario
-      // if (!validator->is_feasible(child, instance))
-      //{
-      //  validator->repair(child, instance);
-      //}
+      if (!validator->is_feasible(child, instance))
+      {
+        validator->repair(child, instance);
+      }
 
       offspring[i] = child;
     }

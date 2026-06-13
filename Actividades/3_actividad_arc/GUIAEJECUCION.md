@@ -78,22 +78,34 @@ cmake .. -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
 
 Ejecuta esto y guarda en `results/hardware.txt`:
 
-```bash
-mkdir -p ../results
-echo "=== HARDWARE REPORT ===" > ../results/hardware.txt
-echo "" >> ../results/hardware.txt
-echo "CPU:" >> ../results/hardware.txt
-wmic os get caption, version, buildnumber >> ../results/hardware.txt
-wmic cpu get name, cores, threads >> ../results/hardware.txt
-echo "" >> ../results/hardware.txt
-echo "GPU:" >> ../results/hardware.txt
-nvidia-smi --query-gpu=name,memory.total,driver_version,compute_cap --format=csv >> ../results/hardware.txt
-echo "" >> ../results/hardware.txt
-echo "CUDA Version:" >> ../results/hardware.txt
-nvcc --version >> ../results/hardware.txt
-echo "" >> ../results/hardware.txt
-echo "Total RAM:" >> ../results/hardware.txt
-wmic os get totalvirtualmemory, totalvisiblememorylsize >> ../results/hardware.txt
+```powershell
+mkdir ..\results -Force
+
+"=== HARDWARE REPORT ===" > ..\results\hardware.txt
+"" >> ..\results\hardware.txt
+
+"CPU:" >> ..\results\hardware.txt
+Get-CimInstance Win32_Processor |
+    Select-Object Name, NumberOfCores, NumberOfLogicalProcessors |
+    Out-File ..\results\hardware.txt -Append
+
+"" >> ..\results\hardware.txt
+
+"GPU:" >> ..\results\hardware.txt
+nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv |
+    Out-File ..\results\hardware.txt -Append
+
+"" >> ..\results\hardware.txt
+
+"CUDA Version:" >> ..\results\hardware.txt
+nvcc --version | Out-File ..\results\hardware.txt -Append
+
+"" >> ..\results\hardware.txt
+
+"RAM:" >> ..\results\hardware.txt
+Get-CimInstance Win32_ComputerSystem |
+    Select-Object TotalPhysicalMemory |
+    Out-File ..\results\hardware.txt -Append
 ```
 
 **Contenido esperado en el informe:**
@@ -128,14 +140,22 @@ cd build
 .\Release\penalty_tuner.exe -i ..\data\large -p 4096 -g 100 
 ```
 
-**Esto generará output similar a:**
+**Valores Óptimos Encontrados (Config 18 - Average Penalty: 0.026):**
 ```
-Best penalties found:
-  Weight: 15.5
-  Volume: 12.0
-  Category: 8.3
-  Incomp: 18.5
-  Dep: 20.0
+Weight Excess:      0.0
+Volume Excess:      0.0
+Category Violation: 0.8
+Incompatibility:    0.0
+Dependency:         0.2
+```
+
+**⚠️ CRÍTICO**: Estos valores son ESPECÍFICOS para esta instancia. El hallazgo clave es que el problema es más sobre **restricciones de categorías y dependencias** que sobre **peso/volumen**. Por eso:
+- `WE=0, VE=0`: El exceso de peso/volumen NO es el problema principal
+- `CV=0.8`: La violación de categorías es el factor dominante
+- `IC=0.0`: La incompatibilidad tiene poco efecto
+- `DV=0.2`: Las dependencias tienen efecto secundario
+
+**Para todos los experimentos (EXP 1-4), usa estos valores:**
 ```
 
 **⚠️ IMPORTANTE**: Toma esos 5 valores y actualiza TODOS los comandos `$cmd` en los scripts EXP 1-4 más abajo. Reemplaza los placeholders:
@@ -193,14 +213,14 @@ foreach ($instance in $instances) {
                 $progress = [math]::Round(($current_run / $total_runs) * 100, 1)
                 Write-Host "[$progress%] EXP1 -> $instance | pop=$pop | $variant | seed=$seed"
                 
-                # ⚠️ ACTUALIZA estos valores con los resultados de penalty_tuner (ver sección 5.1a)
-                $pen_weight = 0.2      # ← CAMBIAR
-                $pen_volume = 0.2      # ← CAMBIAR
-                $pen_category = 0.2    # ← CAMBIAR
-                $pen_incomp = 0.2      # ← CAMBIAR
-                $pen_dep = 0.2         # ← CAMBIAR
+                # ✓ Valores óptimos de penalty_tuner (Config 18)
+                $pen_weight = 0.0      # Config 18 optimal
+                $pen_volume = 0.0      # Config 18 optimal
+                $pen_category = 0.8    # Config 18 optimal
+                $pen_incomp = 0.0      # Config 18 optimal
+                $pen_dep = 0.2         # Config 18 optimal
                 
-                $cmd = ".\ Release\run.exe -i ..\data\$instance -v $variant -t 1 -s $seed -p $pop -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size 128"
+                $cmd = ".\Release\run.exe -i ..\data\$instance -v $variant -t 1 -s $seed -p $pop -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size 128"
                 $output = & $cmd 2>&1 | Out-String
                 
                 # Extraer métricas con regex robusta
@@ -266,14 +286,14 @@ foreach ($block in $block_sizes) {
             $progress = [math]::Round(($current_run / $total_runs) * 100, 1)
             Write-Host "[$progress%] EXP2 -> block=$block | $variant | seed=$seed"
             
-            # ⚠️ Usa los mismos valores de penalty_tuner (ver sección 5.1a)
-            $pen_weight = 0.2      # ← ACTUALIZAR
-            $pen_volume = 0.2      # ← ACTUALIZAR
-            $pen_category = 0.2    # ← ACTUALIZAR
-            $pen_incomp = 0.2      # ← ACTUALIZAR
-            $pen_dep = 0.2         # ← ACTUALIZAR
+            # ✓ Valores óptimos de penalty_tuner (Config 18)
+            $pen_weight = 0.0      # Config 18 optimal
+            $pen_volume = 0.0      # Config 18 optimal
+            $pen_category = 0.8    # Config 18 optimal
+            $pen_incomp = 0.0      # Config 18 optimal
+            $pen_dep = 0.2         # Config 18 optimal
             
-            $cmd = ".\ Release\run.exe -i ..\data\large -v $variant -t 1 -s $seed -p 4096 -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size $block"
+            $cmd = ".\Release\run.exe -i ..\data\large -v $variant -t 1 -s $seed -p 4096 -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size $block"
             $output = & $cmd 2>&1 | Out-String
             
             $fitness = if ($output -match "Best fitness:\s+([\d.-]+)") { $matches[1] } else { "" }
@@ -319,27 +339,27 @@ foreach ($instance in $instances) {
         foreach ($seed in $seeds) {
             Write-Host "EXP3 -> $instance | pop=$pop | seed=$seed"
             
-            # ⚠️ Valores de penalty_tuner (ver sección 5.1a)
-            $pen_weight = 0.2      # ← ACTUALIZAR
-            $pen_volume = 0.2      # ← ACTUALIZAR
-            $pen_category = 0.2    # ← ACTUALIZAR
-            $pen_incomp = 0.2      # ← ACTUALIZAR
-            $pen_dep = 0.2         # ← ACTUALIZAR
+            # ✓ Valores óptimos de penalty_tuner (Config 18)
+            $pen_weight = 0.0      # Config 18 optimal
+            $pen_volume = 0.0      # Config 18 optimal
+            $pen_category = 0.8    # Config 18 optimal
+            $pen_incomp = 0.0      # Config 18 optimal
+            $pen_dep = 0.2         # Config 18 optimal
             
             $pen_flags = "--pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep"
             
             # Sequential
-            $cmd_seq = ".\ Release\run.exe -i ..\data\$instance -v sequential -t 1 -s $seed -p $pop -g 300 $pen_flags"
+            $cmd_seq = ".\Release\run.exe -i ..\data\$instance -v sequential -t 1 -s $seed -p $pop -g 300 $pen_flags"
             $out_seq = & $cmd_seq 2>&1 | Out-String
             $time_seq = if ($out_seq -match "Wall-clock time \(ms\):\s*(\d+)") { [int]$matches[1] } else { 0 }
             
             # CUDA Basic
-            $cmd_bas = ".\ Release\run.exe -i ..\data\$instance -v cuda_basic -t 1 -s $seed -p $pop -g 300 $pen_flags --block-size 128"
+            $cmd_bas = ".\Release\run.exe -i ..\data\$instance -v cuda_basic -t 1 -s $seed -p $pop -g 300 $pen_flags --block-size 128"
             $out_bas = & $cmd_bas 2>&1 | Out-String
             $time_bas = if ($out_bas -match "Wall-clock time \(ms\):\s*(\d+)") { [int]$matches[1] } else { 0 }
             
             # CUDA Optimized
-            $cmd_opt = ".\ Release\run.exe -i ..\data\$instance -v cuda_optimized -t 1 -s $seed -p $pop -g 300 $pen_flags --block-size 128"
+            $cmd_opt = ".\Release\run.exe -i ..\data\$instance -v cuda_optimized -t 1 -s $seed -p $pop -g 300 $pen_flags --block-size 128"
             $out_opt = & $cmd_opt 2>&1 | Out-String
             $time_opt = if ($out_opt -match "Wall-clock time \(ms\):\s*(\d+)") { [int]$matches[1] } else { 0 }
             
@@ -382,14 +402,14 @@ foreach ($pop in $populations) {
         foreach ($seed in $seeds) {
             Write-Host "EXP4 -> pop=$pop | $variant | seed=$seed"
             
-            # ⚠️ Usa los valores de penalty_tuner (ver sección 5.1a)
-            $pen_weight = 0.2      # ← ACTUALIZAR
-            $pen_volume = 0.2      # ← ACTUALIZAR
-            $pen_category = 0.2    # ← ACTUALIZAR
-            $pen_incomp = 0.2      # ← ACTUALIZAR
-            $pen_dep = 0.2         # ← ACTUALIZAR
+            # ✓ Valores óptimos de penalty_tuner (Config 18)
+            $pen_weight = 0.0      # Config 18 optimal
+            $pen_volume = 0.0      # Config 18 optimal
+            $pen_category = 0.8    # Config 18 optimal
+            $pen_incomp = 0.0      # Config 18 optimal
+            $pen_dep = 0.2         # Config 18 optimal
             
-            $cmd = ".\ Release\run.exe -i ..\data\$instance -v $variant -t 1 -s $seed -p $pop -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size 128"
+            $cmd = ".\Release\run.exe -i ..\data\$instance -v $variant -t 1 -s $seed -p $pop -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size 128"
             $output = & $cmd 2>&1 | Out-String
             
             $fitness = if ($output -match "Best fitness:\s+([\d.-]+)") { $matches[1] } else { "" }
