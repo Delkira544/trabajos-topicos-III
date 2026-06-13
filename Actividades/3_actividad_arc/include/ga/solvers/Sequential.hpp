@@ -71,16 +71,11 @@ class Sequential : public BaseGA
     : BaseGA(inst, std::move(cross), std::move(mut), std::move(sel),
              std::move(fit), std::move(val), verbose, seed, pop_size, num_gens)
   {
-      // =========================================================================
-      // FIX CRÍTICO: Forzar la asignación directa de la población y generaciones
-      // Esto sobreescribe cualquier valor "por defecto" (como el 120) que la 
-      // clase BaseGA haya intentado imponer.
-      // =========================================================================
       if (pop_size > 0) {
           this->population_size = pop_size;
       }
       if (num_gens > 0) {
-          this->num_generations = num_gens;
+          this->generations = num_gens;
       }
   }
 

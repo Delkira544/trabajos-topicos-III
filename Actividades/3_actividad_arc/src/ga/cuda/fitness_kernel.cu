@@ -171,17 +171,14 @@ __global__ void fitness_kernel_opt(
             }
         }
 
-        int errors_cat = 0;
         // Nota: para fitness_kernel_opt se asume que c_params contiene cat_rule_id, cat_rule_min, cat_rule_max
         // Como no tenemos acceso directo, usamos el enfoque de contar de genes
         // (esta es una limitación de usar solo memoria constante para datos grandes)
         
         // ── Violaciones de incompatibilidad ───────────────────────────────
-        int errors_incomp = 0;
         // Nota: no podemos validar sin acceso a incomp_a y incomp_b en memoria constante
         
         // ── Violaciones de dependencia ────────────────────────────────────
-        int errors_dep = 0;
         // Nota: no podemos validar sin acceso a dep_a y dep_b en memoria constante
 
         float norm_value = (c_params.max_value > 0.f)
