@@ -2,6 +2,7 @@
 #include "ga/operators/Crossover.hpp"
 #include <random>
 #include <vector>
+#include <stdexcept>
 
 namespace ga::operators
 {
