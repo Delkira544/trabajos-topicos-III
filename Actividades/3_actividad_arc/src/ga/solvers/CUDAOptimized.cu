@@ -37,6 +37,35 @@ CUDAOptimized::CUDAOptimized(
       use_shared_reduce(shared_reduce),
       stream_eval(nullptr), stream_repro(nullptr)
 {
+    // CORRECCIÓN 3: Registrar vectores en memoria pinned (no pageable)
+    // Esto elimina el cuello de botella donde cudaMemcpyAsync fuerza
+    // sincronía porque los vectores están en memoria pageable.
+    try {
+        // Registrar arrays de ítems en memoria pinned
+        CUDA_CHECK(cudaHostRegister(h_item_values.data(),  h_item_values.size() * sizeof(float), cudaHostRegisterDefault));
+        CUDA_CHECK(cudaHostRegister(h_item_weights.data(), h_item_weights.size() * sizeof(float), cudaHostRegisterDefault));
+        CUDA_CHECK(cudaHostRegister(h_item_volumes.data(), h_item_volumes.size() * sizeof(float), cudaHostRegisterDefault));
+        CUDA_CHECK(cudaHostRegister(h_item_cat_ids.data(), h_item_cat_ids.size() * sizeof(int), cudaHostRegisterDefault));
+        
+        // Registrar arrays de restricciones
+        CUDA_CHECK(cudaHostRegister(h_incomp_a.data(), h_incomp_a.size() * sizeof(int), cudaHostRegisterDefault));
+        CUDA_CHECK(cudaHostRegister(h_incomp_b.data(), h_incomp_b.size() * sizeof(int), cudaHostRegisterDefault));
+        CUDA_CHECK(cudaHostRegister(h_dep_a.data(),   h_dep_a.size() * sizeof(int), cudaHostRegisterDefault));
+        CUDA_CHECK(cudaHostRegister(h_dep_b.data(),   h_dep_b.size() * sizeof(int), cudaHostRegisterDefault));
+        CUDA_CHECK(cudaHostRegister(h_cat_id.data(),  h_cat_id.size() * sizeof(int), cudaHostRegisterDefault));
+        CUDA_CHECK(cudaHostRegister(h_cat_min.data(), h_cat_min.size() * sizeof(int), cudaHostRegisterDefault));
+        CUDA_CHECK(cudaHostRegister(h_cat_max.data(), h_cat_max.size() * sizeof(int), cudaHostRegisterDefault));
+
+        if (verbose) {
+            std::cout << "[OPT] Memoria host registrada como pinned (solapamiento H↔D efectivo)\n";
+        }
+    } catch (const std::exception& e) {
+        if (verbose) {
+            std::cerr << "[WARN] Fallo al registrar memoria como pinned: " << e.what() << "\n";
+        }
+        // Continuar sin pinned memory (degradación correcta)
+    }
+
     // ── Optimización 7: Streams CUDA ────────────────────────────────
     if (use_streams) {
         CUDA_CHECK(cudaStreamCreate(&stream_eval));
@@ -54,6 +83,25 @@ CUDAOptimized::CUDAOptimized(
 // ─────────────────────────────────────────────────────────────────────────────
 CUDAOptimized::~CUDAOptimized()
 {
+    // CORRECCIÓN 3: Desregistrar memoria pinned para evitar memory leaks
+    // Es importante hacer esto antes de destruir los vectores
+    try {
+        cudaHostUnregister(h_item_values.data());
+        cudaHostUnregister(h_item_weights.data());
+        cudaHostUnregister(h_item_volumes.data());
+        cudaHostUnregister(h_item_cat_ids.data());
+        cudaHostUnregister(h_incomp_a.data());
+        cudaHostUnregister(h_incomp_b.data());
+        cudaHostUnregister(h_dep_a.data());
+        cudaHostUnregister(h_dep_b.data());
+        cudaHostUnregister(h_cat_id.data());
+        cudaHostUnregister(h_cat_min.data());
+        cudaHostUnregister(h_cat_max.data());
+    } catch (...) {
+        // Ignorar errores en destructor
+    }
+
+    // Destruir streams
     if (stream_eval)  cudaStreamDestroy(stream_eval);
     if (stream_repro) cudaStreamDestroy(stream_repro);
 }
@@ -119,7 +167,10 @@ void CUDAOptimized::evaluate_population()
 {
     size_t pop_sz = population_size;
 
-    if (use_shared_reduce && n_items <= MAX_CONST_ITEMS) {
+    // CORRECCIÓN 1: Verificar dinámicamente si podemos usar memoria constante
+    // Si n_items > MAX_CONST_ITEMS, hacer fallback automático al kernel básico
+    // para evitar Segmentation Fault en GPU out of bounds
+    if (use_shared_reduce && n_items <= MAX_CONST_ITEMS && use_const_memory) {
         // ── Kernel optimizado: un bloque por individuo ───────────────
         // Tamaño de shared memory: 3 * block_size * sizeof(float)
         size_t smem_bytes = 3 * (size_t)block_size * sizeof(float);
@@ -138,6 +189,15 @@ void CUDAOptimized::evaluate_population()
         }
     } else {
         // Fallback al kernel básico (uno por hilo)
+        // Se ejecuta cuando:
+        //   - n_items > MAX_CONST_ITEMS (NO cabe en memoria constante)
+        //   - use_shared_reduce = false
+        //   - use_const_memory = false
+        if (n_items > MAX_CONST_ITEMS && verbose) {
+            std::cout << "[FALLBACK] n_items=" << n_items 
+                      << " > MAX_CONST_ITEMS=" << MAX_CONST_ITEMS 
+                      << " → usando kernel básico en memoria global\n";
+        }
         CUDABasic::evaluate_population();
         return;
     }

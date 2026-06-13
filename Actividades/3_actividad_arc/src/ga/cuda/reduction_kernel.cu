@@ -68,6 +68,11 @@ __global__ void reduce_best_block(
 // ─────────────────────────────────────────────────────────────────────────────
 // reduce_best_warp  –  reducción optimizada con warp shuffle
 // Evita shared memory para la etapa de warp → menor latencia.
+//
+// CORRECCIÓN 2: Implementa grid-stride loop para manejar pop_size > 1024.
+// Usa blockIdx.x * blockDim.x + threadIdx.x para iterar sobre todos los 
+// elementos, acumulando el mejor en cada warp. Después usa shared memory 
+// para reducción entre warps.
 // ─────────────────────────────────────────────────────────────────────────────
 __global__ void reduce_best_warp(
     const float*   __restrict__ fitness,
@@ -75,52 +80,69 @@ __global__ void reduce_best_warp(
     ReduceResult*  result_out,
     int pop_size)
 {
-    // Fase 1: cada hilo carga su elemento
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-    float   f  = (gid < pop_size) ? fitness [gid] : -FLT_MAX;
-    int     ix = (gid < pop_size) ? gid            : -1;
-    uint8_t v  = (gid < pop_size) ? is_valid[gid]  : 0;
+    // Inicializar con valores neutros
+    float   best_fit  = -FLT_MAX;
+    int     best_idx  = -1;
+    uint8_t best_valid = 0;
 
-    // Fase 2: reducción dentro del warp (32 hilos) con shuffle
-    // No necesita __syncthreads() dentro del warp
-    for (int offset = 16; offset > 0; offset >>= 1) {
-        float   fo  = __shfl_down_sync(0xffffffff, f,  offset);
-        int     ixo = __shfl_down_sync(0xffffffff, ix, offset);
-        uint8_t vo  = (uint8_t)__shfl_down_sync(0xffffffff, (int)v, offset);
-        if (ixo >= 0 && is_better(fo, ixo, vo, f, ix, v)) {
-            f = fo; ix = ixo; v = vo;
+    // GRID-STRIDE LOOP: procesar todos los elementos de la población
+    // aunque sea > blockDim.x * gridDim.x
+    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = gridDim.x * blockDim.x;
+    
+    for (int i = gid; i < pop_size; i += stride) {
+        float   f  = fitness [i];
+        uint8_t v  = is_valid[i];
+        if (is_better(f, i, v, best_fit, best_idx, best_valid)) {
+            best_fit   = f;
+            best_idx   = i;
+            best_valid = v;
         }
     }
 
-    // Fase 3: reducción entre warps usando shared memory
+    // Fase 1: Reducción dentro del warp (32 hilos) con shuffle
+    int lane = threadIdx.x & 31;
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        float   fo  = __shfl_down_sync(0xffffffff, best_fit,  offset);
+        int     ixo = __shfl_down_sync(0xffffffff, best_idx, offset);
+        uint8_t vo  = (uint8_t)__shfl_down_sync(0xffffffff, (int)best_valid, offset);
+        if (ixo >= 0 && is_better(fo, ixo, vo, best_fit, best_idx, best_valid)) {
+            best_fit   = fo;
+            best_idx   = ixo;
+            best_valid = vo;
+        }
+    }
+
+    // Fase 2: Reducción entre warps usando shared memory
     // Solo los lane-0 de cada warp participan
     __shared__ float   warp_fit  [32];
     __shared__ int     warp_idx  [32];
     __shared__ uint8_t warp_valid[32];
 
-    int lane    = threadIdx.x & 31;
     int warp_id = threadIdx.x >> 5;
 
     if (lane == 0) {
-        warp_fit  [warp_id] = f;
-        warp_idx  [warp_id] = ix;
-        warp_valid[warp_id] = v;
+        warp_fit  [warp_id] = best_fit;
+        warp_idx  [warp_id] = best_idx;
+        warp_valid[warp_id] = best_valid;
     }
     __syncthreads();
 
     // Solo primer warp finaliza la reducción
     int n_warps = (blockDim.x + 31) / 32;
     if (warp_id == 0 && lane < n_warps) {
-        f  = warp_fit  [lane];
-        ix = warp_idx  [lane];
-        v  = warp_valid[lane];
+        float   f  = warp_fit  [lane];
+        int     ix = warp_idx  [lane];
+        uint8_t v  = warp_valid[lane];
 
         for (int offset = 16; offset > 0; offset >>= 1) {
             float   fo  = __shfl_down_sync(0xffffffff, f,  offset);
             int     ixo = __shfl_down_sync(0xffffffff, ix, offset);
             uint8_t vo  = (uint8_t)__shfl_down_sync(0xffffffff, (int)v, offset);
             if (ixo >= 0 && is_better(fo, ixo, vo, f, ix, v)) {
-                f = fo; ix = ixo; v = vo;
+                f   = fo;
+                ix  = ixo;
+                v   = vo;
             }
         }
 

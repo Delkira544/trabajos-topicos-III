@@ -35,31 +35,41 @@ class Parallel : public BaseGA
     offspring.clear();
     offspring.resize(population_size);
 
-    // Paralelizar la reproducción usando OpenMP
-#pragma omp parallel for num_threads(num_threads) schedule(dynamic)
-    for (int i = 0; i < static_cast<int>(population_size); ++i)
+    // CORRECCIÓN 4: Evitar Data Race y creación excesiva de RNG
+    // Inicializar el RNG base ANTES de la región paralela
+    int base_seed = rng() ^ (std::random_device{}());
+
+    // Usar structured binding para OpenMP: cada thread inicializa
+    // su propio mt19937 UNA SOLA VEZ (no en cada iteración del for)
+#pragma omp parallel num_threads(num_threads)
     {
-      // Cada thread genera su propio RNG para evitar condiciones de carrera
-      std::mt19937 local_rng(rng() + i);
+      // Cada thread crea su propio RNG basado en su ID
+      // omp_get_thread_num() retorna el número de thread de 0 a num_threads-1
+      std::mt19937 local_rng(base_seed + omp_get_thread_num());
 
-      // Seleccionar dos padres
-      auto [parent1, parent2] =
-        selection_op->select_pair(population, local_rng);
-
-      // Cruzamiento
-      Individual child = crossover_op->apply(parent1, parent2, local_rng);
-
-      // Mutación
-      mutation_op->apply(child, local_rng);
-
-      // Reparación si es necesario
-      if (!validator->is_feasible(child, instance))
+      // Ahora el for loop paralelo puede usar local_rng sin reinicializarlo
+#pragma omp for schedule(dynamic)
+      for (int i = 0; i < static_cast<int>(population_size); ++i)
       {
-        validator->repair(child, instance);
-      }
+        // Seleccionar dos padres
+        auto [parent1, parent2] =
+          selection_op->select_pair(population, local_rng);
 
-      offspring[i] = child;
-    }
+        // Cruzamiento
+        Individual child = crossover_op->apply(parent1, parent2, local_rng);
+
+        // Mutación
+        mutation_op->apply(child, local_rng);
+
+        // Reparación si es necesario
+        if (!validator->is_feasible(child, instance))
+        {
+          validator->repair(child, instance);
+        }
+
+        offspring[i] = child;
+      }
+    }  // Fin de región paralela
 
     apply_elitism(elite, offspring);
 
