@@ -18,28 +18,123 @@ __global__ void init_rng_kernel(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// repair_chromosome_gpu 
+// Repara incompatibilidades, dependencias y capacidades
+// ─────────────────────────────────────────────────────────────────────────────
+__device__ void repair_chromosome_gpu(
+    uint8_t* child_genes,
+    const float* weights,
+    const float* volumes,
+    const float* values,
+    const int* incomp_a,
+    const int* incomp_b,
+    const int* dep_a,
+    const int* dep_b,
+    int n_items,
+    int num_incomp,
+    int num_dep,
+    float max_weight,
+    float max_volume)
+{
+    bool changed = true;
+    int max_iters = 100;
+    int iter = 0;
+
+    while (changed && iter < max_iters)
+    {
+        changed = false;
+        iter++;
+        bool is_valid = true;
+
+        // FASE 1: Incompatibilidades
+        for (int i = 0; i < num_incomp; ++i) {
+            int u = incomp_a[i];
+            int v = incomp_b[i];
+            if (child_genes[u] && child_genes[v]) {
+                float cost_u = weights[u] + volumes[u];
+                float eff_u = (cost_u > 0) ? values[u] / cost_u : 0.0f;
+                float cost_v = weights[v] + volumes[v];
+                float eff_v = (cost_v > 0) ? values[v] / cost_v : 0.0f;
+                
+                if (eff_u < eff_v) child_genes[u] = 0;
+                else child_genes[v] = 0;
+                
+                changed = true;
+                is_valid = false;
+            }
+        }
+
+        // FASE 2: Dependencias
+        for (int i = 0; i < num_dep; ++i) {
+            int u = dep_a[i];
+            int v = dep_b[i];
+            if (child_genes[u] && !child_genes[v]) {
+                child_genes[u] = 0;
+                changed = true;
+                is_valid = false;
+            }
+        }
+
+        // FASE 3: Capacidades (Peso y Volumen)
+        float current_w = 0.0f, current_v = 0.0f;
+        for (int i = 0; i < n_items; ++i) {
+            if (child_genes[i]) {
+                current_w += weights[i];
+                current_v += volumes[i];
+            }
+        }
+
+        if (current_w > max_weight || current_v > max_volume) {
+            is_valid = false;
+            int worst_idx = -1;
+            float worst_eff = 1e9f; // Infinito
+
+            for (int i = 0; i < n_items; ++i) {
+                if (child_genes[i]) {
+                    float cost = weights[i] + volumes[i];
+                    float eff = (cost > 0) ? values[i] / cost : 0.0f;
+                    if (eff < worst_eff) {
+                        worst_eff = eff;
+                        worst_idx = i;
+                    }
+                }
+            }
+
+            if (worst_idx >= 0) {
+                child_genes[worst_idx] = 0;
+                changed = true;
+            } else {
+                break;
+            }
+        }
+
+        if (is_valid) break;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // reproduce_kernel
 // Fusión de selección por torneo + cruzamiento + mutación en un solo kernel.
 // Un hilo por individuo del offspring.
 // ─────────────────────────────────────────────────────────────────────────────
 __global__ void reproduce_kernel(
     const uint8_t* __restrict__ population,
-    uint8_t*       offspring,
-    const float*   __restrict__ fitness,
-    curandState*   rng_states,
+    uint8_t* offspring,
+    const float* __restrict__ fitness,
+    curandState* rng_states,
     int   pop_size,
     int   n_items,
     int   tournament_size,
     float crossover_rate,
     float mutation_rate,
     // ─── Punteros adicionales para reparación ──────
-    const float*   __restrict__ values,
-    const float*   __restrict__ weights,
-    const float*   __restrict__ volumes,
-    const int*     __restrict__ incomp_a,
-    const int*     __restrict__ incomp_b,
-    const int*     __restrict__ dep_a,
-    const int*     __restrict__ dep_b,
+    const float* __restrict__ values,
+    const float* __restrict__ weights,
+    const float* __restrict__ volumes,
+    const int* __restrict__ incomp_a,
+    const int* __restrict__ incomp_b,
+    const int* __restrict__ dep_a,
+    const int* __restrict__ dep_b,
     int   max_weight,
     int   max_volume,
     int   n_incomp,
@@ -67,21 +162,16 @@ __global__ void reproduce_kernel(
 
     const uint8_t* p1 = population + (long long)best1 * n_items;
     const uint8_t* p2 = population + (long long)best2 * n_items;
-    uint8_t*       ch = offspring   + (long long)ind   * n_items;
+    uint8_t* ch = offspring   + (long long)ind   * n_items;
 
     // ── Cruzamiento de un punto ────────────────────────────────────────
     float r_cross = curand_uniform(&local_state);
     if (r_cross <= crossover_rate) {
-        // Punto de corte aleatorio en [0, n_items-1]
         int cut = (int)(curand_uniform(&local_state) * (n_items - 1));
-        // Control de divergencia: usamos operador condicional sin branch
-        // para evitar divergencia de warps en el loop de genes.
         for (int g = 0; g < n_items; ++g) {
             ch[g] = (g <= cut) ? p1[g] : p2[g];
         }
     } else {
-        // Sin cruzamiento: copiar padre1 directamente
-        // (acceso coalescente: hilos consecutivos acceden a genes consecutivos)
         for (int g = 0; g < n_items; ++g) {
             ch[g] = p1[g];
         }
@@ -90,20 +180,17 @@ __global__ void reproduce_kernel(
     // ── Mutación uniforme (bit-flip) ──────────────────────────────────
     for (int g = 0; g < n_items; ++g) {
         float r_mut = curand_uniform(&local_state);
-        // Sin branch: usamos operación aritmética
-        // ch[g] = ch[g] XOR (r_mut < mutation_rate ? 1 : 0)
         ch[g] ^= (r_mut < mutation_rate) ? 1 : 0;
     }
 
     // ── Reparación POST-mutación ──────────────────────────────────────
-    __syncthreads();  // Esperar a todos los hilos antes de reparación
     repair_chromosome_gpu(
-        ch, n_items,
-        values, weights, volumes,
-        incomp_a, incomp_b, n_incomp,
-        dep_a, dep_b, n_dep,
-        max_weight, max_volume);
-    __syncthreads();
+        ch, 
+        weights, volumes, values, 
+        incomp_a, incomp_b, dep_a, dep_b, 
+        n_items, n_incomp, n_dep, 
+        (float)max_weight, (float)max_volume
+    );
 
     // Guardar estado cuRAND actualizado
     rng_states[ind] = local_state;
@@ -111,13 +198,11 @@ __global__ void reproduce_kernel(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // elitism_kernel
-// Sobreescribe los peores k individuos del offspring con los mejores k de elite.
-// Un hilo por gen por individuo de élite.
 // ─────────────────────────────────────────────────────────────────────────────
 __global__ void elitism_kernel(
     const uint8_t* __restrict__ elite_genes,
-    uint8_t*       offspring,
-    const int*     __restrict__ worst_idx,
+    uint8_t* offspring,
+    const int* __restrict__ worst_idx,
     int k,
     int n_items)
 {
@@ -133,11 +218,9 @@ __global__ void elitism_kernel(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // swap_populations_kernel
-// Copia offspring → population para la siguiente generación.
-// Accesos coalescentes: hilo i accede a byte i.
 // ─────────────────────────────────────────────────────────────────────────────
 __global__ void swap_populations_kernel(
-    uint8_t*       population,
+    uint8_t* population,
     const uint8_t* __restrict__ offspring,
     int pop_size,
     int n_items)

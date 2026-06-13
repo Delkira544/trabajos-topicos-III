@@ -33,18 +33,18 @@ namespace ga::operators
       }
 
       // 2. Validar Incompatibilidades
-      for (const auto& incomp : instance.incompatibilities)
+      for (const auto& incomp : instance.incompatibility_rules)
       {
-        if (individual.chromosome[incomp.first] && individual.chromosome[incomp.second])
+        if (individual.chromosome[incomp.item_id_a] && individual.chromosome[incomp.item_id_b])
         {
           return false;
         }
       }
 
-      // 3. Validar Dependencias (first depende de second)
-      for (const auto& dep : instance.dependencies)
+      // 3. Validar Dependencias (A depende de B)
+      for (const auto& dep : instance.dependency_rules)
       {
-        if (individual.chromosome[dep.first] && !individual.chromosome[dep.second])
+        if (individual.chromosome[dep.item_id_a] && !individual.chromosome[dep.item_id_b])
         {
           return false;
         }
@@ -69,10 +69,10 @@ namespace ga::operators
         // ---------------------------------------------------------
         // FASE 1: Resolver Incompatibilidades
         // ---------------------------------------------------------
-        for (const auto& incomp : instance.incompatibilities)
+        for (const auto& incomp : instance.incompatibility_rules)
         {
-          int u = incomp.first;
-          int v = incomp.second;
+          int u = incomp.item_id_a;
+          int v = incomp.item_id_b;
 
           if (individual.chromosome[u] && individual.chromosome[v])
           {
@@ -93,17 +93,17 @@ namespace ga::operators
         }
 
         // ---------------------------------------------------------
-        // FASE 2: Resolver Dependencias (u depende de v)
+        // FASE 2: Resolver Dependencias (A depende de B)
         // ---------------------------------------------------------
-        for (const auto& dep : instance.dependencies)
+        for (const auto& dep : instance.dependency_rules)
         {
-          int u = dep.first;
-          int v = dep.second;
+          int u = dep.item_id_a;
+          int v = dep.item_id_b;
 
           // Si 'u' está en la mochila pero su pre-requisito 'v' NO lo está
           if (individual.chromosome[u] && !individual.chromosome[v])
           {
-            // Es más seguro apagar 'u' que encender 'v' para no violar el peso
+            // Apagamos 'u' para no violar la dependencia (y evitamos subir peso encendiendo 'v')
             individual.chromosome[u] = false;
             changed = true;
           }
