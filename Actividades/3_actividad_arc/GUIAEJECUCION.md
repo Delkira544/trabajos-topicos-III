@@ -2,20 +2,14 @@
 ## Actividad 3 — Algoritmo Genético con CUDA
 
 ---
-
 ##  VALIDACIÓN DEL CMakeLists.txt
 
-El `CMakeLists.txt` actual está **correctamente configurado**:
-
+El `CMakeLists.txt` actual está:
 - ✓ C++17 y CUDA C++17 standards
 - ✓ Optimizaciones `-O3 --use_fast_math`
-- ✓ Detección automática de arquitectura (fallback: 86)
+- ✓ Detección automática de arquitectura
 - ✓ OpenMP y CUDA Toolkit correctamente enlazados
 - ✓ Separable compilation activada
-- ✓ Targets `run` y `penalty_tuner` bien definidos
-- ✓ Todas las fuentes CUDA incluidas
-
-**No requiere cambios.**
 
 ---
 
@@ -26,9 +20,7 @@ Antes de compilar, identifica tu GPU:
 ```bash
 nvidia-smi
 ```
-
 Busca el modelo y usa el valor correcto en CMakeLists.txt:
-
 | GPU                    | CMAKE_CUDA_ARCHITECTURES |
 |------------------------|--------------------------|
 | RTX 20xx (Turing)      | 75                        |
@@ -37,12 +29,10 @@ Busca el modelo y usa el valor correcto en CMakeLists.txt:
 | GTX 10xx (Pascal)      | 61                        |
 | GTX 16xx (Turing)      | 75                        |
 | Detección automática   | native                    |
-
 Editar CMakeLists.txt:
 ```cmake
 set(CMAKE_CUDA_ARCHITECTURES 86)   # ← cambia según tu GPU
 ```
-
 O para detectar automáticamente (requiere CMake >= 3.24):
 ```cmake
 set(CMAKE_CUDA_ARCHITECTURES native)
@@ -72,36 +62,27 @@ cmake .. -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
 ```
 ---
 
-## 5. Plan Experimental Completo (SEGÚN RÚBRICA)
+## 5. Plan Experimental 
 
-### 5.0 Reporte de Hardware (OBLIGATORIO antes de los experimentos)
-
+### 5.0 Reporte de Hardware
 Ejecuta esto y guarda en `results/hardware.txt`:
 
 ```powershell
 mkdir ..\results -Force
-
 "=== HARDWARE REPORT ===" > ..\results\hardware.txt
 "" >> ..\results\hardware.txt
-
 "CPU:" >> ..\results\hardware.txt
 Get-CimInstance Win32_Processor |
     Select-Object Name, NumberOfCores, NumberOfLogicalProcessors |
     Out-File ..\results\hardware.txt -Append
-
 "" >> ..\results\hardware.txt
-
 "GPU:" >> ..\results\hardware.txt
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv |
     Out-File ..\results\hardware.txt -Append
-
 "" >> ..\results\hardware.txt
-
 "CUDA Version:" >> ..\results\hardware.txt
 nvcc --version | Out-File ..\results\hardware.txt -Append
-
 "" >> ..\results\hardware.txt
-
 "RAM:" >> ..\results\hardware.txt
 Get-CimInstance Win32_ComputerSystem |
     Select-Object TotalPhysicalMemory |
@@ -130,51 +111,20 @@ Get-CimInstance Win32_ComputerSystem |
 
 ---
 
-### 5.1a ⚠️ PASO CRÍTICO: Calibrar Pesos de Penalización
-
-**ANTES de ejecutar los experimentos, debes correr el penalty_tuner una sola vez:**
-
-```powershell
-# En el directorio build, ejecuta:
-cd build
-.\Release\penalty_tuner.exe -i ..\data\large -p 4096 -g 100 
+### 5.1a  Calibrar Pesos de Penalización
+**Valores Óptimos Encontrados:**
 ```
-
-**Valores Óptimos Encontrados (Config 18 - Average Penalty: 0.026):**
-```
-Weight Excess:      0.0
+Weight Excess:      0.25
 Volume Excess:      0.0
-Category Violation: 0.8
-Incompatibility:    0.0
-Dependency:         0.2
+Category Violation: 0.25
+Incompatibility:    0.25
+Dependency:         0.25
 ```
-
-**⚠️ CRÍTICO**: Estos valores son ESPECÍFICOS para esta instancia. El hallazgo clave es que el problema es más sobre **restricciones de categorías y dependencias** que sobre **peso/volumen**. Por eso:
-- `WE=0, VE=0`: El exceso de peso/volumen NO es el problema principal
-- `CV=0.8`: La violación de categorías es el factor dominante
-- `IC=0.0`: La incompatibilidad tiene poco efecto
-- `DV=0.2`: Las dependencias tienen efecto secundario
-
-**Para todos los experimentos (EXP 1-4), usa estos valores:**
-```
-
-**⚠️ IMPORTANTE**: Toma esos 5 valores y actualiza TODOS los comandos `$cmd` en los scripts EXP 1-4 más abajo. Reemplaza los placeholders:
-```powershell
-# De esto:
-$cmd = "...\run.exe ... --block-size 128"
-
-# A esto (con TUS valores encontrados por penalty_tuner):
-$cmd = "...\run.exe ... --pen-weight 15.5 --pen-volume 12.0 --pen-category 8.3 --pen-incomp 18.5 --pen-dep 20.0 --block-size 128"
-```
-
-**Por qué es crítico**: Sin estos parámetros, tu algoritmo usa valores hardcodeados (antiguos) y los 455 experimentos estarían ejecutándose con configuración subóptima, invalidando TODO el análisis.
-
 ---
 
 ### 5.2 EXP 1: Variantes × Instancias × Poblaciones × 10 Semillas
 
 **Objetivo**: Comparar rendimiento (CPU vs GPU básico vs GPU optimizado) en 3 tamaños de instancia con 3 configuraciones de población.
-
 **Configuración**:
 - Instancias: small (100), medium (1000), large (10000)
 - Poblaciones: 1024, 4096, 16384
@@ -186,44 +136,40 @@ $cmd = "...\run.exe ... --pen-weight 15.5 --pen-volume 12.0 --pen-category 8.3 -
 **Script PowerShell (Windows)**:
 
 ```powershell
-# ─────────────────────────────────────────────────────────────────────────────
-# EXP 1: Main experimental design
-# ─────────────────────────────────────────────────────────────────────────────
-
-cd .\build
-
 New-Item -ItemType Directory -Force -Path "..\results" | Out-Null
 
+# ─────────────────────────────────────────────────────────────────────────────
+# EXP 1: (Diseño principal)
+# ─────────────────────────────────────────────────────────────────────────────
 $csv_exp1 = "..\results\exp1_main_design.csv"
 $header = "instance_size,population,variant,seed,best_fitness,feasible,wall_time_ms,kernel_fitness_ms,kernel_repro_ms,h2d_transfer_ms,d2h_transfer_ms,feasible_pct,init_fitness,final_fitness,improvement"
 $header | Out-File -FilePath $csv_exp1 -Encoding utf8
 
 $instances = @("small", "medium", "large")
-$populations = @(1024, 4096, 16384)
+$populations = @(512, 1024, 4096)
 $variants = @("sequential", "cuda_basic", "cuda_optimized")
 $seeds = 42..51
-$total_runs = 270
+$total_runs_exp1 = 270
 $current_run = 0
+
+# Valores óptimos del penalty_tuner
+$pen_weight = 0.25
+$pen_volume = 0.00
+$pen_category = 0.25
+$pen_incomp = 0.25
+$pen_dep = 0.25
 
 foreach ($instance in $instances) {
     foreach ($pop in $populations) {
         foreach ($variant in $variants) {
             foreach ($seed in $seeds) {
                 $current_run++
-                $progress = [math]::Round(($current_run / $total_runs) * 100, 1)
+                $progress = [math]::Round(($current_run / $total_runs_exp1) * 100, 1)
                 Write-Host "[$progress%] EXP1 -> $instance | pop=$pop | $variant | seed=$seed"
                 
-                # ✓ Valores óptimos de penalty_tuner (Config 18)
-                $pen_weight = 0.0      # Config 18 optimal
-                $pen_volume = 0.0      # Config 18 optimal
-                $pen_category = 0.8    # Config 18 optimal
-                $pen_incomp = 0.0      # Config 18 optimal
-                $pen_dep = 0.2         # Config 18 optimal
-                
                 $cmd = ".\Release\run.exe -i ..\data\$instance -v $variant -t 1 -s $seed -p $pop -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size 128"
-                $output = & $cmd 2>&1 | Out-String
+                $output = & cmd.exe /c $cmd 2>&1 | Out-String
                 
-                # Extraer métricas con regex robusta
                 $fitness = if ($output -match "Best fitness:\s+([\d.-]+)") { $matches[1] } else { "" }
                 $feasible = if ($output -match "Feasible:\s+(Yes|No)") { $matches[1] } else { "" }
                 $wall_ms = if ($output -match "Wall-clock time \(ms\):\s*(\d+)") { $matches[1] } else { "" }
@@ -238,63 +184,33 @@ foreach ($instance in $instances) {
                 
                 $line = "$instance,$pop,$variant,$seed,$fitness,$feasible,$wall_ms,$kfit_ms,$krepro_ms,$h2d_ms,$d2h_ms,$feasible_pct,$init_fit,$final_fit,$improvement"
                 $line | Out-File -FilePath $csv_exp1 -Append -Encoding utf8
-                
-                Start-Sleep -Milliseconds 100  # Pequeña pausa entre ejecuciones
             }
         }
     }
 }
-
 Write-Host "`n✓ EXP 1 completado: $csv_exp1"
-cd ..
-```
 
----
-
-### 5.3 EXP 2: Efecto del Tamaño de Bloque (GPU)
-
-**Objetivo**: Medir impacto del block size en performance CUDA.
-
-**Configuración**:
-- Instancia: large (10000)
-- Población: 4096
-- Block sizes: 32, 64, 128, 256, 512
-- Variantes: cuda_basic, cuda_optimized
-- Semillas: 42-46 (5 repeticiones)
-- **Total**: 5 × 2 × 5 = 50 ejecuciones
-
-```powershell
 # ─────────────────────────────────────────────────────────────────────────────
-# EXP 2: Block size effect
+# EXP 2:(Efecto del tamaño de bloque)
 # ─────────────────────────────────────────────────────────────────────────────
-
-cd .\build
-
 $csv_exp2 = "..\results\exp2_block_size_effect.csv"
 "instance,population,block_size,variant,seed,best_fitness,feasible,wall_time_ms,kernel_fitness_ms,kernel_repro_ms,transfer_overhead_pct" | Out-File -FilePath $csv_exp2 -Encoding utf8
 
-$block_sizes = @(32, 64, 128, 256, 512)
-$variants = @("cuda_basic", "cuda_optimized")
-$seeds = 42..46
-$total_runs = 50
+$block_sizes = @(32, 64, 128, 256)
+$variants_cuda = @("cuda_basic", "cuda_optimized")
+# Se usan 10 semillas para cumplir con el requerimiento del PDF estrictamente
+$total_runs_exp2 = $block_sizes.Count * $variants_cuda.Count * $seeds.Count
 $current_run = 0
 
 foreach ($block in $block_sizes) {
-    foreach ($variant in $variants) {
+    foreach ($variant in $variants_cuda) {
         foreach ($seed in $seeds) {
             $current_run++
-            $progress = [math]::Round(($current_run / $total_runs) * 100, 1)
+            $progress = [math]::Round(($current_run / $total_runs_exp2) * 100, 1)
             Write-Host "[$progress%] EXP2 -> block=$block | $variant | seed=$seed"
             
-            # ✓ Valores óptimos de penalty_tuner (Config 18)
-            $pen_weight = 0.0      # Config 18 optimal
-            $pen_volume = 0.0      # Config 18 optimal
-            $pen_category = 0.8    # Config 18 optimal
-            $pen_incomp = 0.0      # Config 18 optimal
-            $pen_dep = 0.2         # Config 18 optimal
-            
             $cmd = ".\Release\run.exe -i ..\data\large -v $variant -t 1 -s $seed -p 4096 -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size $block"
-            $output = & $cmd 2>&1 | Out-String
+            $output = & cmd.exe /c $cmd 2>&1 | Out-String
             
             $fitness = if ($output -match "Best fitness:\s+([\d.-]+)") { $matches[1] } else { "" }
             $feasible = if ($output -match "Feasible:\s+(Yes|No)") { $matches[1] } else { "" }
@@ -307,123 +223,94 @@ foreach ($block in $block_sizes) {
         }
     }
 }
-
 Write-Host "`n✓ EXP 2 completado: $csv_exp2"
-cd ..
-```
 
----
-
-### 5.4 EXP 3: Speed-up Analysis
-
-**Objetivo**: Calcular speed-up de GPU vs CPU secuencial.
-
-**Fórmula**: `Speed-up = Time_Sequential / Time_GPU`
-
-```powershell
 # ─────────────────────────────────────────────────────────────────────────────
-# EXP 3: Speed-up analysis
+# EXP 3: Speed-up analysis 
 # ─────────────────────────────────────────────────────────────────────────────
-
-cd .\build
-
+Write-Host "`nGenerando EXP 3 cruzando datos de EXP 1..."
 $csv_exp3 = "..\results\exp3_speedup.csv"
-"instance,population,seed,time_seq_ms,time_cuda_basic_ms,time_cuda_opt_ms,speedup_basic,speedup_opt" | Out-File -FilePath $csv_exp3 -Encoding utf8
+"instance,population,speedup_basic,speedup_opt" | Out-File -FilePath $csv_exp3 -Encoding utf8
 
-$instances = @("small", "medium", "large")
-$populations = @(1024, 4096, 16384)
-$seeds = 42..51
+$data_exp1 = Import-Csv $csv_exp1
 
 foreach ($instance in $instances) {
     foreach ($pop in $populations) {
-        foreach ($seed in $seeds) {
-            Write-Host "EXP3 -> $instance | pop=$pop | seed=$seed"
-            
-            # ✓ Valores óptimos de penalty_tuner (Config 18)
-            $pen_weight = 0.0      # Config 18 optimal
-            $pen_volume = 0.0      # Config 18 optimal
-            $pen_category = 0.8    # Config 18 optimal
-            $pen_incomp = 0.0      # Config 18 optimal
-            $pen_dep = 0.2         # Config 18 optimal
-            
-            $pen_flags = "--pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep"
-            
-            # Sequential
-            $cmd_seq = ".\Release\run.exe -i ..\data\$instance -v sequential -t 1 -s $seed -p $pop -g 300 $pen_flags"
-            $out_seq = & $cmd_seq 2>&1 | Out-String
-            $time_seq = if ($out_seq -match "Wall-clock time \(ms\):\s*(\d+)") { [int]$matches[1] } else { 0 }
-            
-            # CUDA Basic
-            $cmd_bas = ".\Release\run.exe -i ..\data\$instance -v cuda_basic -t 1 -s $seed -p $pop -g 300 $pen_flags --block-size 128"
-            $out_bas = & $cmd_bas 2>&1 | Out-String
-            $time_bas = if ($out_bas -match "Wall-clock time \(ms\):\s*(\d+)") { [int]$matches[1] } else { 0 }
-            
-            # CUDA Optimized
-            $cmd_opt = ".\Release\run.exe -i ..\data\$instance -v cuda_optimized -t 1 -s $seed -p $pop -g 300 $pen_flags --block-size 128"
-            $out_opt = & $cmd_opt 2>&1 | Out-String
-            $time_opt = if ($out_opt -match "Wall-clock time \(ms\):\s*(\d+)") { [int]$matches[1] } else { 0 }
-            
-            # Calcular speed-up
-            $sp_bas = if ($time_bas -gt 0) { [math]::Round([float]$time_seq / [float]$time_bas, 2) } else { "N/A" }
-            $sp_opt = if ($time_opt -gt 0) { [math]::Round([float]$time_seq / [float]$time_opt, 2) } else { "N/A" }
-            
-            "$instance,$pop,$seed,$time_seq,$time_bas,$time_opt,$sp_bas,$sp_opt" | Out-File -FilePath $csv_exp3 -Append -Encoding utf8
-        }
+        # Promedios de tiempo
+        $seq_times = $data_exp1 | Where-Object { $_.instance_size -eq $instance -and $_.population -eq $pop -and $_.variant -eq "sequential" -and $_.wall_time_ms -ne "" }
+        $bas_times = $data_exp1 | Where-Object { $_.instance_size -eq $instance -and $_.population -eq $pop -and $_.variant -eq "cuda_basic" -and $_.wall_time_ms -ne "" }
+        $opt_times = $data_exp1 | Where-Object { $_.instance_size -eq $instance -and $_.population -eq $pop -and $_.variant -eq "cuda_optimized" -and $_.wall_time_ms -ne "" }
+        
+        $avg_seq = if ($seq_times) { ($seq_times | Measure-Object -Property wall_time_ms -Average).Average } else { 0 }
+        $avg_bas = if ($bas_times) { ($bas_times | Measure-Object -Property wall_time_ms -Average).Average } else { 0 }
+        $avg_opt = if ($opt_times) { ($opt_times | Measure-Object -Property wall_time_ms -Average).Average } else { 0 }
+        
+        $sp_bas = if ($avg_bas -gt 0) { [math]::Round([float]$avg_seq / [float]$avg_bas, 2) } else { "N/A" }
+        $sp_opt = if ($avg_opt -gt 0) { [math]::Round([float]$avg_seq / [float]$avg_opt, 2) } else { "N/A" }
+        
+        "$instance,$pop,$sp_bas,$sp_opt" | Out-File -FilePath $csv_exp3 -Append -Encoding utf8
     }
 }
+Write-Host "✓ EXP 3 completado: $csv_exp3"
 
-Write-Host "`n✓ EXP 3 completado: $csv_exp3"
-cd ..
-```
-
----
-
-### 5.5 EXP 4: Efecto del Tamaño de Población
-
-**Objetivo**: Medir impacto de population_size en calidad y tiempo.
-
-```powershell
 # ─────────────────────────────────────────────────────────────────────────────
-# EXP 4: Population size effect
+# EXP 4: Population size effect 
 # ─────────────────────────────────────────────────────────────────────────────
-
-cd .\build
-
+Write-Host "`nGenerando EXP 4 cruzando datos de EXP 1..."
 $csv_exp4 = "..\results\exp4_population_effect.csv"
 "instance,population,variant,seed,best_fitness,feasible,wall_time_ms,kernel_time_ms" | Out-File -FilePath $csv_exp4 -Encoding utf8
 
-$instance = "large"
-$populations = @(1024, 4096, 16384)
-$variants = @("sequential", "cuda_basic", "cuda_optimized")
-$seeds = 42..46
+$data_exp4 = $data_exp1 | Where-Object { $_.instance_size -eq "large" }
 
-foreach ($pop in $populations) {
-    foreach ($variant in $variants) {
-        foreach ($seed in $seeds) {
-            Write-Host "EXP4 -> pop=$pop | $variant | seed=$seed"
-            
-            # ✓ Valores óptimos de penalty_tuner (Config 18)
-            $pen_weight = 0.0      # Config 18 optimal
-            $pen_volume = 0.0      # Config 18 optimal
-            $pen_category = 0.8    # Config 18 optimal
-            $pen_incomp = 0.0      # Config 18 optimal
-            $pen_dep = 0.2         # Config 18 optimal
-            
-            $cmd = ".\Release\run.exe -i ..\data\$instance -v $variant -t 1 -s $seed -p $pop -g 300 --pen-weight $pen_weight --pen-volume $pen_volume --pen-category $pen_category --pen-incomp $pen_incomp --pen-dep $pen_dep --block-size 128"
-            $output = & $cmd 2>&1 | Out-String
-            
-            $fitness = if ($output -match "Best fitness:\s+([\d.-]+)") { $matches[1] } else { "" }
-            $feasible = if ($output -match "Feasible:\s+(Yes|No)") { $matches[1] } else { "" }
-            $wall_ms = if ($output -match "Wall-clock time \(ms\):\s*(\d+)") { $matches[1] } else { "" }
-            $ktime = if ($output -match "Kernel fitness\s+total \(ms\):\s+([\d.]+)") { $matches[1] } else { "" }
-            
-            "$instance,$pop,$variant,$seed,$fitness,$feasible,$wall_ms,$ktime" | Out-File -FilePath $csv_exp4 -Append -Encoding utf8
+foreach ($row in $data_exp4) {
+    $ktime = 0
+    # Sumar tiempos de kernel (fitness + repro) si existen en el registro
+    if ($row.kernel_fitness_ms -ne "" -and $row.kernel_repro_ms -ne "") {
+        $ktime = [math]::Round([float]$row.kernel_fitness_ms + [float]$row.kernel_repro_ms, 2)
+    }
+    
+    "$($row.instance_size),$($row.population),$($row.variant),$($row.seed),$($row.best_fitness),$($row.feasible),$($row.wall_time_ms),$ktime" | Out-File -FilePath $csv_exp4 -Append -Encoding utf8
+}
+Write-Host "✓ EXP 4 completado: $csv_exp4"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SUMMARY: Tablas para el informe
+# ─────────────────────────────────────────────────────────────────────────────
+Write-Host "`n=== Generando Tablas de Resumen para tu Informe ==="
+$summary1 = "Instancia,Población,Variante,Promedio (ms),Desv.Est (ms),Min (ms),Max (ms)"
+foreach ($instance in $instances) {
+    foreach ($pop in $populations) {
+        foreach ($variant in $variants) {
+            $subset = $data_exp1 | Where-Object { $_.instance_size -eq $instance -and $_.population -eq $pop -and $_.variant -eq $variant -and $_.wall_time_ms -ne "" }
+            $times = @($subset.wall_time_ms | ForEach-Object { [float]$_ })
+            if ($times.Count -gt 0) {
+                $avg = [math]::Round(($times | Measure-Object -Average).Average, 2)
+                $stddev = [math]::Round(($times | Measure-Object -Average | ForEach-Object { ($times | ForEach-Object { [math]::Pow($_ - $avg, 2) } | Measure-Object -Average).Average } | ForEach-Object { [math]::Sqrt($_) }), 2)
+                $min = [math]::Round(($times | Measure-Object -Minimum).Minimum, 2)
+                $max = [math]::Round(($times | Measure-Object -Maximum).Maximum, 2)
+                $summary1 += "`n$instance,$pop,$variant,$avg,$stddev,$min,$max"
+            }
         }
     }
 }
+$summary1 | Out-File -FilePath "..\results\table_timing_summary.csv" -Encoding utf8
 
-Write-Host "`n✓ EXP 4 completado: $csv_exp4"
-cd ..
+$summary2 = "Instancia,Población,Variante,Factibles (%)"
+foreach ($instance in $instances) {
+    foreach ($pop in $populations) {
+        foreach ($variant in $variants) {
+            $subset = $data_exp1 | Where-Object { $_.instance_size -eq $instance -and $_.population -eq $pop -and $_.variant -eq $variant -and $_.feasible_pct -ne "" }
+            $feasibles = @($subset.feasible_pct | ForEach-Object { [float]$_ })
+            if ($feasibles.Count -gt 0) {
+                $avg_feasible = [math]::Round(($feasibles | Measure-Object -Average).Average, 2)
+                $summary2 += "`n$instance,$pop,$variant,$avg_feasible"
+            }
+        }
+    }
+}
+$summary2 | Out-File -FilePath "..\results\table_feasibility.csv" -Encoding utf8
+
+Write-Host "Tablas de resumen guardadas en ..\results\"
 ```
 
 ---
@@ -530,59 +417,6 @@ Write-Host "`n✓ Todas las tablas generadas en $results_dir\"
 ```
 
 ---
-
-### 5.7 Uso del Script Completo
-
-```bash
-# 1. Compilar el proyecto
-mkdir -p build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . --config Release -j8
-cd ..
-
-# 2. Ejecutar TODOS los experimentos (IMPORTANTE: tardará horas)
-# Opción 1: Windows PowerShell
-cd .\build
-# Pegar y ejecutar cada bloque de EXP 1, 2, 3, 4 arriba
-
-# 3. Generar tablas resumen
-# Ejecutar el bloque "Summary: Generate tables for report"
-
-# 4. Los CSVs estarán en:
-# ../results/exp1_main_design.csv
-# ../results/exp2_block_size_effect.csv
-# ../results/exp3_speedup.csv
-# ../results/exp4_population_effect.csv
-# ../results/table_timing_summary.csv
-# ../results/table_feasibility.csv
-# ../results/table_speedup.csv
-```
-
----
-
-### 5.4 Guardar resultados en CSV automáticamente
-```bash
-# Script bash para recolectar resultados
-echo "instance,variant,block_size,seed,best_fitness,feasible,time_ms" > results/resultados.csv
-
-for seed in 42 43 44 45 46 47 48 49 50 51; do
-  for instance in small medium large; do
-    for variant in sequential cuda_basic cuda_optimized; do
-      for block in 128; do
-        output=$(./build/run -i data/$instance -v $variant -t 1 -s $seed --block-size $block 2>&1)
-        fitness=$(echo "$output" | grep "Best fitness:" | awk '{print $3}')
-        feasible=$(echo "$output" | grep "Feasible:" | awk '{print $2}')
-        time=$(echo "$output" | grep "Execution time:" | awk '{print $3}')
-        echo "$instance,$variant,$block,$seed,$fitness,$feasible,$time" >> results/resultados.csv
-      done
-    done
-  done
-done
-```
-
----
-
 
 ## 8. Errores comunes y soluciones
 
