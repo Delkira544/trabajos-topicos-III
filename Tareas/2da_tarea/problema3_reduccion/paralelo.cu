@@ -27,7 +27,7 @@ float sumaSecuencial(const vector<float>& A, int N) {
 }
 
 __global__ void reduccionPorBloque(float* A, float* sumasParciales, int N) {
-    __shared__ float sdata[256];
+    extern __shared__ float sdata[];
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     float val = (idx < N) ? A[idx] : 0.0f;
@@ -66,25 +66,34 @@ void probar(int N) {
     int blocks = (N + threads - 1) / threads;
     CUDA_CHECK(cudaMalloc(&d_sumas, blocks * sizeof(float)));
 
-    cudaEvent_t start, stop;
+    cudaEvent_t start, stop, k_start, k_stop;
     CUDA_CHECK(cudaEventCreate(&start));
     CUDA_CHECK(cudaEventCreate(&stop));
-    float tiempo_ms = 0.0f;
+    CUDA_CHECK(cudaEventCreate(&k_start));
+    CUDA_CHECK(cudaEventCreate(&k_stop));
+    float tiempo_kernel_ms = 0.0f;
+    float tiempo_total_ms = 0.0f;
 
     vector<float> sumasParciales(blocks);
 
     // Warm-up
     CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
-    reduccionPorBloque<<<blocks, threads>>>(d_A, d_sumas, N);
+    reduccionPorBloque<<<blocks, threads, threads * sizeof(float)>>>(d_A, d_sumas, N);
+    CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaEventRecord(start));
-    reduccionPorBloque<<<blocks, threads>>>(d_A, d_sumas, N);
+    CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaEventRecord(k_start));
+    reduccionPorBloque<<<blocks, threads, threads * sizeof(float)>>>(d_A, d_sumas, N);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaEventRecord(k_stop));
+    CUDA_CHECK(cudaMemcpy(sumasParciales.data(), d_sumas, blocks * sizeof(float), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaEventRecord(stop));
     CUDA_CHECK(cudaEventSynchronize(stop));
-    CUDA_CHECK(cudaEventElapsedTime(&tiempo_ms, start, stop));
-    CUDA_CHECK(cudaMemcpy(sumasParciales.data(), d_sumas, blocks * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_total_ms, start, stop));
+    CUDA_CHECK(cudaEventSynchronize(k_stop));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_kernel_ms, k_start, k_stop));
 
     float resultadoGPU = 0.0f;
     for (int i = 0; i < blocks; i++) {
@@ -96,18 +105,21 @@ void probar(int N) {
     bool ok = diff <= fmax(1e-5f * maxVal, 1e-2f);
 
     cout << "[reduccion] blocks=" << blocks << " threads/block=" << threads
-         << " tiempo=" << tiempo_ms << " ms"
+         << " tiempo kernel=" << tiempo_kernel_ms << " ms"
+         << " tiempo total (con copias)=" << tiempo_total_ms << " ms"
          << " suma_cpu=" << resultadoCPU << " suma_gpu=" << resultadoGPU
          << " diff=" << diff
          << " -> " << (ok ? "CORRECTO" : "INCORRECTO") << "\n";
 
     cout << "[CPU] tiempo=" << tiempoCPU.count() << " ms resultado=" << resultadoCPU << "\n";
-    cout << "[NOTA] Tiempo GPU INCLUYE copias de memoria CPU<->GPU\n";
+    cout << "[NOTA] Se reportan por separado el tiempo de ejecucion puro del kernel y el tiempo total (incluye copias CPU<->GPU)\n";
 
     CUDA_CHECK(cudaFree(d_A));
     CUDA_CHECK(cudaFree(d_sumas));
     CUDA_CHECK(cudaEventDestroy(start));
     CUDA_CHECK(cudaEventDestroy(stop));
+    CUDA_CHECK(cudaEventDestroy(k_start));
+    CUDA_CHECK(cudaEventDestroy(k_stop));
 }
 
 int main(int argc, char** argv) {

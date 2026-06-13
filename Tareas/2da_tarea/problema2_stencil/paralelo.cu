@@ -58,13 +58,7 @@ __global__ void stencilShared(float* A, float* B, int N) {
     __syncthreads();
 
     if (idx < N) {
-        if (idx == 0) {
-            B[0] = A[0] + A[1];
-        } else if (idx == N - 1) {
-            B[N - 1] = A[N - 2] + A[N - 1];
-        } else {
-            B[idx] = tile[threadIdx.x] + tile[threadIdx.x + 1] + tile[threadIdx.x + 2];
-        }
+        B[idx] = tile[threadIdx.x] + tile[threadIdx.x + 1] + tile[threadIdx.x + 2];
     }
 }
 
@@ -109,10 +103,13 @@ void probar(int N) {
     CUDA_CHECK(cudaMalloc(&d_A, N * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_B, N * sizeof(float)));
 
-    cudaEvent_t start, stop;
+    cudaEvent_t start, stop, k_start, k_stop;
     CUDA_CHECK(cudaEventCreate(&start));
     CUDA_CHECK(cudaEventCreate(&stop));
-    float tiempo_ms = 0.0f;
+    CUDA_CHECK(cudaEventCreate(&k_start));
+    CUDA_CHECK(cudaEventCreate(&k_stop));
+    float tiempo_kernel_ms = 0.0f;
+    float tiempo_total_ms = 0.0f;
 
     int threads = 256;
     int blocks = (N + threads - 1) / threads;
@@ -120,41 +117,54 @@ void probar(int N) {
     // Warm-up
     CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
     stencilGlobal<<<blocks, threads>>>(d_A, d_B, N);
+    CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
     // Version memoria global
-    CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaEventRecord(start));
+    CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaEventRecord(k_start));
     stencilGlobal<<<blocks, threads>>>(d_A, d_B, N);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaEventRecord(k_stop));
+    CUDA_CHECK(cudaMemcpy(B_global.data(), d_B, N * sizeof(float), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaEventRecord(stop));
     CUDA_CHECK(cudaEventSynchronize(stop));
-    CUDA_CHECK(cudaEventElapsedTime(&tiempo_ms, start, stop));
-    CUDA_CHECK(cudaMemcpy(B_global.data(), d_B, N * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_total_ms, start, stop));
+    CUDA_CHECK(cudaEventSynchronize(k_stop));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_kernel_ms, k_start, k_stop));
 
     bool ok1 = verificar(B_global, referencia, N);
     cout << "[global] blocks=" << blocks << " threads/block=" << threads
-         << " tiempo=" << tiempo_ms << " ms"
+         << " tiempo kernel=" << tiempo_kernel_ms << " ms"
+         << " tiempo total (con copias)=" << tiempo_total_ms << " ms"
          << " checksum=" << checksum(B_global)
          << " -> " << (ok1 ? "CORRECTO" : "INCORRECTO") << "\n";
 
     // Version shared memory
     size_t sharedBytes = (threads + 2) * sizeof(float);
-    CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaEventRecord(start));
+    CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaEventRecord(k_start));
     stencilShared<<<blocks, threads, sharedBytes>>>(d_A, d_B, N);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaEventRecord(k_stop));
+    CUDA_CHECK(cudaMemcpy(B_shared.data(), d_B, N * sizeof(float), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaEventRecord(stop));
     CUDA_CHECK(cudaEventSynchronize(stop));
-    CUDA_CHECK(cudaEventElapsedTime(&tiempo_ms, start, stop));
-    CUDA_CHECK(cudaMemcpy(B_shared.data(), d_B, N * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_total_ms, start, stop));
+    CUDA_CHECK(cudaEventSynchronize(k_stop));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_kernel_ms, k_start, k_stop));
 
     bool ok2 = verificar(B_shared, referencia, N);
     cout << "[shared] blocks=" << blocks << " threads/block=" << threads
-         << " tiempo=" << tiempo_ms << " ms"
+         << " tiempo kernel=" << tiempo_kernel_ms << " ms"
+         << " tiempo total (con copias)=" << tiempo_total_ms << " ms"
          << " checksum=" << checksum(B_shared)
          << " -> " << (ok2 ? "CORRECTO" : "INCORRECTO") << "\n";
 
     cout << "[CPU] tiempo=" << tiempoCPU.count() << " ms checksum=" << checksum(referencia) << "\n";
-    cout << "[NOTA] Tiempo GPU INCLUYE copias de memoria CPU<->GPU\n";
+    cout << "[NOTA] Se reportan por separado el tiempo de ejecucion puro del kernel y el tiempo total (incluye copias CPU<->GPU)\n";
 
     if (N == 1) {
         cout << "Unico valor: " << referencia[0] << endl;
@@ -170,6 +180,8 @@ void probar(int N) {
     CUDA_CHECK(cudaFree(d_B));
     CUDA_CHECK(cudaEventDestroy(start));
     CUDA_CHECK(cudaEventDestroy(stop));
+    CUDA_CHECK(cudaEventDestroy(k_start));
+    CUDA_CHECK(cudaEventDestroy(k_stop));
 }
 
 int main(int argc, char** argv) {

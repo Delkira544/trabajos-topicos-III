@@ -38,8 +38,9 @@ __global__ void histogramaGlobal(unsigned char* A, unsigned int* hist, int N) {
 __global__ void histogramaShared(unsigned char* A, unsigned int* hist, int N) {
     __shared__ unsigned int localHist[256];
 
-    if (threadIdx.x < 256) {
-        localHist[threadIdx.x] = 0;
+    // Inicializacion paralela del histograma local (robusta para cualquier blockDim.x)
+    for (int i = threadIdx.x; i < 256; i += blockDim.x) {
+        localHist[i] = 0;
     }
     __syncthreads();
 
@@ -49,8 +50,9 @@ __global__ void histogramaShared(unsigned char* A, unsigned int* hist, int N) {
     }
     __syncthreads();
 
-    if (threadIdx.x < 256) {
-        atomicAdd(&hist[threadIdx.x], localHist[threadIdx.x]);
+    // Combinacion final (robusta para cualquier blockDim.x)
+    for (int i = threadIdx.x; i < 256; i += blockDim.x) {
+        atomicAdd(&hist[i], localHist[i]);
     }
 }
 
@@ -99,10 +101,13 @@ void probar(int N) {
     CUDA_CHECK(cudaMalloc(&d_A, N * sizeof(unsigned char)));
     CUDA_CHECK(cudaMalloc(&d_hist, NUM_BINS * sizeof(unsigned int)));
 
-    cudaEvent_t start, stop;
+    cudaEvent_t start, stop, k_start, k_stop;
     CUDA_CHECK(cudaEventCreate(&start));
     CUDA_CHECK(cudaEventCreate(&stop));
-    float tiempo_ms = 0.0f;
+    CUDA_CHECK(cudaEventCreate(&k_start));
+    CUDA_CHECK(cudaEventCreate(&k_stop));
+    float tiempo_kernel_ms = 0.0f;
+    float tiempo_total_ms = 0.0f;
 
     int threads = 256;
     int blocks = (N + threads - 1) / threads;
@@ -111,42 +116,55 @@ void probar(int N) {
     CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(unsigned char), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemset(d_hist, 0, NUM_BINS * sizeof(unsigned int)));
     histogramaGlobal<<<blocks, threads>>>(d_A, d_hist, N);
+    CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
     // Version atomicAdd global
+    CUDA_CHECK(cudaEventRecord(start));
     CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(unsigned char), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemset(d_hist, 0, NUM_BINS * sizeof(unsigned int)));
-    CUDA_CHECK(cudaEventRecord(start));
+    CUDA_CHECK(cudaEventRecord(k_start));
     histogramaGlobal<<<blocks, threads>>>(d_A, d_hist, N);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaEventRecord(k_stop));
+    CUDA_CHECK(cudaMemcpy(hist_global.data(), d_hist, NUM_BINS * sizeof(unsigned int), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaEventRecord(stop));
     CUDA_CHECK(cudaEventSynchronize(stop));
-    CUDA_CHECK(cudaEventElapsedTime(&tiempo_ms, start, stop));
-    CUDA_CHECK(cudaMemcpy(hist_global.data(), d_hist, NUM_BINS * sizeof(unsigned int), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_total_ms, start, stop));
+    CUDA_CHECK(cudaEventSynchronize(k_stop));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_kernel_ms, k_start, k_stop));
 
     bool ok1 = verificarHistograma(hist_global, referencia);
     cout << "[global atomic] blocks=" << blocks << " threads/block=" << threads
-         << " tiempo=" << tiempo_ms << " ms"
+         << " tiempo kernel=" << tiempo_kernel_ms << " ms"
+         << " tiempo total (con copias)=" << tiempo_total_ms << " ms"
          << " suma=" << sumaBins(hist_global)
          << " -> " << (ok1 ? "CORRECTO" : "INCORRECTO") << "\n";
 
     // Version shared memory
+    CUDA_CHECK(cudaEventRecord(start));
     CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(unsigned char), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemset(d_hist, 0, NUM_BINS * sizeof(unsigned int)));
-    CUDA_CHECK(cudaEventRecord(start));
+    CUDA_CHECK(cudaEventRecord(k_start));
     histogramaShared<<<blocks, threads>>>(d_A, d_hist, N);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaEventRecord(k_stop));
+    CUDA_CHECK(cudaMemcpy(hist_shared.data(), d_hist, NUM_BINS * sizeof(unsigned int), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaEventRecord(stop));
     CUDA_CHECK(cudaEventSynchronize(stop));
-    CUDA_CHECK(cudaEventElapsedTime(&tiempo_ms, start, stop));
-    CUDA_CHECK(cudaMemcpy(hist_shared.data(), d_hist, NUM_BINS * sizeof(unsigned int), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_total_ms, start, stop));
+    CUDA_CHECK(cudaEventSynchronize(k_stop));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_kernel_ms, k_start, k_stop));
 
     bool ok2 = verificarHistograma(hist_shared, referencia);
     cout << "[shared atomic] blocks=" << blocks << " threads/block=" << threads
-         << " tiempo=" << tiempo_ms << " ms"
+         << " tiempo kernel=" << tiempo_kernel_ms << " ms"
+         << " tiempo total (con copias)=" << tiempo_total_ms << " ms"
          << " suma=" << sumaBins(hist_shared)
          << " -> " << (ok2 ? "CORRECTO" : "INCORRECTO") << "\n";
 
     cout << "[CPU] tiempo=" << tiempoCPU.count() << " ms suma=" << sumaBins(referencia) << "\n";
-    cout << "[NOTA] Tiempo GPU INCLUYE copias de memoria CPU<->GPU\n";
+    cout << "[NOTA] Se reportan por separado el tiempo de ejecucion puro del kernel y el tiempo total (incluye copias CPU<->GPU)\n";
 
     cout << "Primeros 10 bins:" << endl;
     for (int i = 0; i < 10; i++) {

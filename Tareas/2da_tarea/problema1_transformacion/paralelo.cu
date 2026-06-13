@@ -59,8 +59,8 @@ double checksum(const vector<float>& V) {
     return s;
 }
 
-void probar(int N) {
-    cout << "\n========== N = " << N << " ==========\n";
+void probar(int N, int threads = 256) {
+    cout << "\n========== N = " << N << " | threads/block = " << threads << " ==========\n";
 
     vector<float> A(N);
     vector<float> B_cpu(N);
@@ -81,51 +81,66 @@ void probar(int N) {
     CUDA_CHECK(cudaMalloc(&d_A, N * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_B, N * sizeof(float)));
 
-    cudaEvent_t start, stop;
+    cudaEvent_t start, stop, k_start, k_stop;
     CUDA_CHECK(cudaEventCreate(&start));
     CUDA_CHECK(cudaEventCreate(&stop));
-    float tiempo_ms = 0.0f;
+    CUDA_CHECK(cudaEventCreate(&k_start));
+    CUDA_CHECK(cudaEventCreate(&k_stop));
+    float tiempo_kernel_ms = 0.0f;
+    float tiempo_total_ms = 0.0f;
 
-    int threads = 256;
     int blocks = (N + threads - 1) / threads;
 
     // Warm-up
     CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
     transformarCUDA<<<blocks, threads>>>(d_A, d_B, N);
+    CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
     // Version 1 hilo por elemento
-    CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaEventRecord(start));
+    CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaEventRecord(k_start));
     transformarCUDA<<<blocks, threads>>>(d_A, d_B, N);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaEventRecord(k_stop));
+    CUDA_CHECK(cudaMemcpy(B_cuda.data(), d_B, N * sizeof(float), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaEventRecord(stop));
     CUDA_CHECK(cudaEventSynchronize(stop));
-    CUDA_CHECK(cudaEventElapsedTime(&tiempo_ms, start, stop));
-    CUDA_CHECK(cudaMemcpy(B_cuda.data(), d_B, N * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_total_ms, start, stop));
+    CUDA_CHECK(cudaEventSynchronize(k_stop));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_kernel_ms, k_start, k_stop));
 
     bool ok1 = verificar(B_cuda, referencia, N);
     cout << "[1hilo/elem] blocks=" << blocks << " threads/block=" << threads
-         << " tiempo=" << tiempo_ms << " ms"
+         << " tiempo kernel=" << tiempo_kernel_ms << " ms"
+         << " tiempo total (con copias)=" << tiempo_total_ms << " ms"
          << " checksum=" << checksum(B_cuda)
          << " -> " << (ok1 ? "CORRECTO" : "INCORRECTO") << "\n";
 
     // Version Grid-Stride Loop
-    CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaEventRecord(start));
+    CUDA_CHECK(cudaMemcpy(d_A, A.data(), N * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaEventRecord(k_start));
     transformarGridStride<<<blocks, threads>>>(d_A, d_B, N);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaEventRecord(k_stop));
+    CUDA_CHECK(cudaMemcpy(B_gs.data(), d_B, N * sizeof(float), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaEventRecord(stop));
     CUDA_CHECK(cudaEventSynchronize(stop));
-    CUDA_CHECK(cudaEventElapsedTime(&tiempo_ms, start, stop));
-    CUDA_CHECK(cudaMemcpy(B_gs.data(), d_B, N * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_total_ms, start, stop));
+    CUDA_CHECK(cudaEventSynchronize(k_stop));
+    CUDA_CHECK(cudaEventElapsedTime(&tiempo_kernel_ms, k_start, k_stop));
 
     bool ok2 = verificar(B_gs, referencia, N);
     cout << "[grid-stride] blocks=" << blocks << " threads/block=" << threads
-         << " tiempo=" << tiempo_ms << " ms"
+         << " tiempo kernel=" << tiempo_kernel_ms << " ms"
+         << " tiempo total (con copias)=" << tiempo_total_ms << " ms"
          << " checksum=" << checksum(B_gs)
          << " -> " << (ok2 ? "CORRECTO" : "INCORRECTO") << "\n";
 
     cout << "[CPU] tiempo=" << tiempoCPU.count() << " ms checksum=" << checksum(referencia) << "\n";
-    cout << "[NOTA] Tiempo GPU INCLUYE copias de memoria CPU<->GPU\n";
+    cout << "[NOTA] Se reportan por separado el tiempo de ejecucion puro del kernel y el tiempo total (incluye copias CPU<->GPU)\n";
 
     cout << "Primeros 10 valores: ";
     for (int i = 0; i < 10 && i < N; i++) {
@@ -137,15 +152,24 @@ void probar(int N) {
     CUDA_CHECK(cudaFree(d_B));
     CUDA_CHECK(cudaEventDestroy(start));
     CUDA_CHECK(cudaEventDestroy(stop));
+    CUDA_CHECK(cudaEventDestroy(k_start));
+    CUDA_CHECK(cudaEventDestroy(k_stop));
 }
 
 int main(int argc, char** argv) {
     int N_default = 1 << 24;
-    cout << "--- Problema 1: Transformacion lineal B[i] = 3*A[i] + 7 ---\n";
-    probar(1024);
-    probar(100000);
-    probar(1 << 20);
     int N = (argc > 1) ? atoi(argv[1]) : N_default;
-    probar(N);
+    cout << "--- Problema 1: Transformacion lineal B[i] = 3*A[i] + 7 ---\n";
+    
+    if (argc > 2) {
+        int threads = atoi(argv[2]);
+        probar(N, threads);
+    } else {
+        // Mediciones del impacto del tamano de bloque en el rendimiento
+        cout << "\n--- Comparacion de tamanos de bloque (Threads per Block) para N = " << N << " ---\n";
+        for (int t : {32, 64, 128, 256, 512, 1024}) {
+            probar(N, t);
+        }
+    }
     return 0;
 }
