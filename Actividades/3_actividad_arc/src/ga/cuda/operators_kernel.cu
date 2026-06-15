@@ -87,7 +87,7 @@ __device__ void repair_chromosome_gpu(
         if (current_w > max_weight || current_v > max_volume) {
             is_valid = false;
             int worst_idx = -1;
-            float worst_eff = -1.0f;  // Inicializar a -1 (mejor que cualquier eficiencia)
+            float worst_eff = -1.0f;
 
             for (int i = 0; i < n_items; ++i) {
                 if (child_genes[i]) {
@@ -98,11 +98,6 @@ __device__ void repair_chromosome_gpu(
                         worst_idx = i;
                     }
                 }
-            }
-
-            // Solo remover si encontramos un item válido
-            if (worst_idx >= 0) {
-                child_genes[worst_idx] = 0;
             }
 
             if (worst_idx >= 0) {
@@ -140,8 +135,8 @@ __global__ void reproduce_kernel(
     const int* __restrict__ incomp_b,
     const int* __restrict__ dep_a,
     const int* __restrict__ dep_b,
-    int   max_weight,
-    int   max_volume,
+    float max_weight,
+    float max_volume,
     int   n_incomp,
     int   n_dep)
 {
@@ -199,26 +194,6 @@ __global__ void reproduce_kernel(
 
     // Guardar estado cuRAND actualizado
     rng_states[ind] = local_state;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// elitism_kernel
-// ─────────────────────────────────────────────────────────────────────────────
-__global__ void elitism_kernel(
-    const uint8_t* __restrict__ elite_genes,
-    uint8_t* offspring,
-    const int* __restrict__ worst_idx,
-    int k,
-    int n_items)
-{
-    int elite_ind = blockIdx.x;   // qué individuo de élite
-    int gene      = threadIdx.x + blockIdx.y * blockDim.x;  // qué gen
-
-    if (elite_ind >= k || gene >= n_items) return;
-
-    int dst_ind = worst_idx[elite_ind];
-    offspring[(long long)dst_ind * n_items + gene] =
-        elite_genes[(long long)elite_ind * n_items + gene];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

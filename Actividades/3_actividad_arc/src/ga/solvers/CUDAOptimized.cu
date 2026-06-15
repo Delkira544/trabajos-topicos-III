@@ -1,7 +1,6 @@
 #include "ga/solvers/CUDAOptimized.cuh"
 #include "ga/cuda/fitness_kernel.cuh"
 #include "ga/cuda/operators_kernel.cuh"
-#include "ga/cuda/reduction_kernel.cuh"
 #include "config/constants.hpp"
 #include <algorithm>
 #include <iostream>
@@ -191,6 +190,11 @@ void CUDAOptimized::upload_instance_optimized()
     }
 }
 
+// ── Helpers de eventos para timing en CUDAOptimized ──────────────────────────
+#define OPT_EVENT_CREATE(s,e) cudaEvent_t s, e; \
+    cudaEventCreate(&s); cudaEventCreate(&e)
+#define OPT_EVENT_DESTROY(s,e) cudaEventDestroy(s); cudaEventDestroy(e)
+
 // ─────────────────────────────────────────────────────────────────────────────
 // evaluate_population  (override)
 // Optimizaciones aplicadas:
@@ -198,27 +202,15 @@ void CUDAOptimized::upload_instance_optimized()
 //            (fitness_kernel_opt: un bloque por individuo)
 //   - Opt 1/5: usa c_values, c_weights, c_volumes desde memoria constante
 //   - Opt 7: lanza en stream_eval para solapar con transferencias
+// Métricas: tiempos de kernel fitness y transferencia D→H registrados con eventos
 // ─────────────────────────────────────────────────────────────────────────────
 void CUDAOptimized::evaluate_population()
 {
     size_t pop_sz = population_size;
 
-    // CORRECCIÓN 1+RUBRICA: Usar fitness_kernel_opt SOLO cuando es 100% seguro
-    // - n_items <= MAX_CONST_ITEMS (cabe en memoria constante)
-    // - NO hay restricciones complejas (categorías, incomp, dep)
-    //
-    // RAZÓN: fitness_kernel_opt solo valida peso/volumen. Las restricciones
-    // duras (incompatibilidades, dependencias) DEBEN ser validadas.
-    // Según la rúbrica: "la solución final reportada debe ser factible
-    // respecto de las restricciones duras"
-    //
-    // Por seguridad: si hay restricciones complejas, siempre usar kernel básico
     bool has_complex_constraints = (n_incomp > 0 || n_dep > 0 || n_cat_rules > 0);
     
     if (use_shared_reduce && n_items <= MAX_CONST_ITEMS && use_const_memory && !has_complex_constraints) {
-        // ── Kernel optimizado: un bloque por individuo ───────────────
-        // NOTA: Solo se ejecuta para instancias sin restricciones complejas
-        // Tamaño de shared memory: 3 * block_size * sizeof(float)
         size_t smem_bytes = 3 * (size_t)block_size * sizeof(float);
         cudaStream_t s = use_streams ? stream_eval : 0;
 
@@ -226,54 +218,80 @@ void CUDAOptimized::evaluate_population()
             std::cout << "[OPT] Usando fitness_kernel_opt (restricciones simples)\n";
         }
 
-        // Un bloque por individuo, block_size hilos por bloque
+        // ── Medir tiempo de kernel fitness optimizado ─────────────────
+        OPT_EVENT_CREATE(k0, k1);
+        cudaEventRecord(k0, s);
+
         fitness_kernel_opt<<<(int)pop_sz, block_size, smem_bytes, s>>>(
             d_population,
             d_fitness, d_penalty, d_hard_feas, d_is_valid,
             (int)pop_sz);
 
+        cudaEventRecord(k1, s);
         if (use_streams) {
             CUDA_CHECK(cudaStreamSynchronize(stream_eval));
         } else {
             CUDA_CHECK(cudaDeviceSynchronize());
         }
-    } else {
-        // Fallback al kernel básico (uno por hilo)
-        // Se ejecuta cuando:
-        //   - n_items > MAX_CONST_ITEMS (NO cabe en memoria constante)
-        //   - use_shared_reduce = false
-        //   - use_const_memory = false
-        //   - Hay restricciones complejas (categorías, incomp, dep) ← IMPORTANTE PARA RÚBRICA
-        if (has_complex_constraints && verbose) {
-            std::cout << "[FALLBACK] Restricciones complejas detectadas (incomp=" << n_incomp 
-                      << ", dep=" << n_dep << ", cat=" << n_cat_rules
-                      << ") → usando kernel básico para validación completa\n";
-        } else if (n_items > MAX_CONST_ITEMS && verbose) {
-            std::cout << "[FALLBACK] n_items=" << n_items 
-                      << " > MAX_CONST_ITEMS=" << MAX_CONST_ITEMS 
-                      << " → usando kernel básico en memoria global\n";
+        total_kernel_fitness_ms += elapsed_ms(k0, k1);
+        OPT_EVENT_DESTROY(k0, k1);
+
+        // ── Medir transferencia D→H de resultados escalares ───────────
+        std::vector<float>   h_fit  (pop_sz);
+        std::vector<float>   h_pen  (pop_sz);
+        std::vector<uint8_t> h_hf   (pop_sz);
+        std::vector<uint8_t> h_valid(pop_sz);
+
+        OPT_EVENT_CREATE(d0, d1);
+        cudaEventRecord(d0, s);
+        CUDA_CHECK(cudaMemcpy(h_fit.data(),   d_fitness,   pop_sz*sizeof(float),   cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_pen.data(),   d_penalty,   pop_sz*sizeof(float),   cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_hf.data(),    d_hard_feas, pop_sz*sizeof(uint8_t), cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_valid.data(), d_is_valid,  pop_sz*sizeof(uint8_t), cudaMemcpyDeviceToHost));
+        cudaEventRecord(d1, s);
+        cudaEventSynchronize(d1);
+        total_transfer_d2h_ms += elapsed_ms(d0, d1);
+        OPT_EVENT_DESTROY(d0, d1);
+
+        for (size_t i = 0; i < pop_sz; ++i) {
+            population[i].fitness       = h_fit  [i];
+            population[i].penalty       = h_pen  [i];
+            population[i].hard_feasible = (h_hf   [i] == 1);
+            population[i].is_valid      = (h_valid[i] == 1);
         }
-        CUDABasic::evaluate_population();
+
+        // Rastrear mejores individuos y descargar solo sus cromosomas
+        size_t best_idx = 0;
+        size_t best_valid_idx = SIZE_MAX;
+        for (size_t i = 1; i < pop_sz; ++i) {
+            if (population[i].fitness > population[best_idx].fitness)
+                best_idx = i;
+        }
+        for (size_t i = 0; i < pop_sz; ++i) {
+            if (population[i].is_valid) {
+                if (best_valid_idx == SIZE_MAX || population[i].fitness > population[best_valid_idx].fitness)
+                    best_valid_idx = i;
+            }
+        }
+
+        h_best_chrom.resize(n_items);
+        CUDA_CHECK(cudaMemcpy(h_best_chrom.data(),
+                              d_population + best_idx * (size_t)n_items,
+                              n_items * sizeof(uint8_t), cudaMemcpyDeviceToHost));
+
+        if (best_valid_idx != SIZE_MAX) {
+            h_best_valid_chrom.resize(n_items);
+            CUDA_CHECK(cudaMemcpy(h_best_valid_chrom.data(),
+                                  d_population + best_valid_idx * (size_t)n_items,
+                                  n_items * sizeof(uint8_t), cudaMemcpyDeviceToHost));
+        }
+
+        ++timing_samples;
         return;
     }
 
-    // Bajar solo fitness/penalty/flags (no genes)
-    std::vector<float>   h_fit  (pop_sz);
-    std::vector<float>   h_pen  (pop_sz);
-    std::vector<uint8_t> h_hf   (pop_sz);
-    std::vector<uint8_t> h_valid(pop_sz);
-
-    CUDA_CHECK(cudaMemcpy(h_fit.data(),   d_fitness,   pop_sz*sizeof(float),   cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_pen.data(),   d_penalty,   pop_sz*sizeof(float),   cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_hf.data(),    d_hard_feas, pop_sz*sizeof(uint8_t), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_valid.data(), d_is_valid,  pop_sz*sizeof(uint8_t), cudaMemcpyDeviceToHost));
-
-    for (size_t i = 0; i < pop_sz; ++i) {
-        population[i].fitness       = h_fit  [i];
-        population[i].penalty       = h_pen  [i];
-        population[i].hard_feasible = (h_hf   [i] == 1);
-        population[i].is_valid      = (h_valid[i] == 1);
-    }
+    // Fallback al kernel básico (ya incluye timing y tracking de mejores)
+    CUDABasic::evaluate_population();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -281,41 +299,46 @@ void CUDAOptimized::evaluate_population()
 // Optimizaciones adicionales sobre CUDABasic::do_reproduction():
 //   - Opt 4: ajuste dinámico de tamaño de bloque
 //   - Opt 6: control de divergencia de warps en reproduce_kernel
-//            (el kernel ya usa operadores aritméticos en lugar de branches)
 //   - Opt 7: usa stream_repro para solapar con la evaluación del siguiente ciclo
 //   - Opt 2: accesos coalescentes garantizados (genes[ind*n + g])
+// Métricas: tiempo de kernel de reproducción registrado con eventos
 // ─────────────────────────────────────────────────────────────────────────────
 void CUDAOptimized::do_reproduction()
 {
     size_t pop_sz = population_size;
 
-    // ── Opt 4: tamaño de bloque ajustado ────────────────────────────
     int opt_bs = get_optimal_block_size(n_items);
     int blocks = ((int)pop_sz + opt_bs - 1) / opt_bs;
 
     cudaStream_t s = use_streams ? stream_repro : 0;
 
+    // ── Medir tiempo de kernel de reproducción ────────────────────────
+    OPT_EVENT_CREATE(k0, k1);
+    cudaEventRecord(k0, s);
+
     reproduce_kernel<<<blocks, opt_bs, 0, s>>>(
         d_population, d_offspring, d_fitness,
         d_rng_states,
         (int)pop_sz, n_items,
-        3,   // tournament_size
+        3,
         crossover_op->get_crossover_rate(),
         mutation_op->get_mutation_rate(),
-        // ─── Punteros adicionales para reparación ──────
         d_values, d_weights, d_volumes,
         d_incomp_a, d_incomp_b,
         d_dep_a, d_dep_b,
-        (int)instance.max_weight, (int)instance.max_volume,
+        instance.max_weight, instance.max_volume,
         n_incomp, n_dep);
 
+    cudaEventRecord(k1, s);
     if (use_streams) {
         CUDA_CHECK(cudaStreamSynchronize(stream_repro));
     } else {
         CUDA_CHECK(cudaDeviceSynchronize());
     }
+    total_kernel_repro_ms += elapsed_ms(k0, k1);
+    OPT_EVENT_DESTROY(k0, k1);
 
-    // ── Elitismo (igual que CUDABasic, solo con stream) ──────────────
+    // ── Elitismo (device→device, no cuenta como H↔D) ──────────────
     size_t elitism_count = std::max((size_t)1,
         (size_t)(pop_sz * Config::GeneticAlgorithm::ELITISM_PERCENTAGE));
 
@@ -338,7 +361,7 @@ void CUDAOptimized::do_reproduction()
             s));
     }
 
-    // ── Swap con bloque óptimo ────────────────────────────────────────
+    // ── Swap con bloque óptimo (todo en GPU, sin D→H) ─────────────
     int total_genes = (int)pop_sz * n_items;
     int swap_blocks = (total_genes + opt_bs - 1) / opt_bs;
     swap_populations_kernel<<<swap_blocks, opt_bs, 0, s>>>(
@@ -349,18 +372,8 @@ void CUDAOptimized::do_reproduction()
     } else {
         CUDA_CHECK(cudaDeviceSynchronize());
     }
-
-    // Bajar genes a CPU
-    std::vector<uint8_t> h_genes(pop_sz * (size_t)n_items);
-    CUDA_CHECK(cudaMemcpy(h_genes.data(), d_population,
-                          pop_sz*(size_t)n_items*sizeof(uint8_t),
-                          cudaMemcpyDeviceToHost));
-    for (size_t i = 0; i < pop_sz; ++i) {
-        population[i].chromosome.resize(n_items);
-        for (int g = 0; g < n_items; ++g) {
-            population[i].chromosome[g] = (h_genes[i*(size_t)n_items+g] != 0);
-        }
-    }
+    // NOTA: Cromosomas no se descargan cada gen (Req 6.2).
+    // Se descargan lazy en get_best() solo para el mejor individuo.
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

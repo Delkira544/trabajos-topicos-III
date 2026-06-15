@@ -40,10 +40,18 @@ class SolverFactory
   };
 
   static std::unique_ptr<GeneticSolver> create(const std::string& variant,
-                                               KnapsackInstance& instance,
-                                               const SolverConfig& config)
+                                                KnapsackInstance& instance,
+                                                const SolverConfig& config)
   {
     std::cout << "Creating solver: " << variant << std::endl;
+
+    // Aplicar penalizaciones de la configuración (CLI) a las constantes globales
+    // para que todos los solvers (CPU y CUDA) usen los mismos valores
+    Config::Penalty::WEIGHT_EXCESS_PENALTY        = config.penalty_weight;
+    Config::Penalty::VOLUME_EXCESS_PENALTY        = config.penalty_volume;
+    Config::Penalty::CATEGORY_VIOLATION_PENALTY   = config.penalty_category;
+    Config::Penalty::INCOMPATIBILITY_PENALTY      = config.penalty_incomp;
+    Config::Penalty::DEPENDENCY_VIOLATION_PENALTY = config.penalty_dep;
 
     auto crossover  = std::make_unique<ga::operators::SinglePointCrossover>(config.crossover_rate);
     auto mutation   = std::make_unique<ga::operators::UniformMutation>(config.mutation_rate);

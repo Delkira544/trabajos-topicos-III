@@ -38,6 +38,7 @@ class BaseGA : public GeneticSolver
   std::vector<Individual> population;
   size_t generations_without_improvement = 0;
   float last_best_fitness = -std::numeric_limits<float>::infinity();
+  bool found_valid_solution = false;
 
   struct GenerationStats
   {
@@ -75,11 +76,19 @@ class BaseGA : public GeneticSolver
   }
 
   /**
-   * @brief Actualiza el mejor individuo encontrado
+   * @brief Actualiza el mejor individuo encontrado y el mejor factible (Req 5.1)
    */
   void update_best_solution()
   {
     best_individual = fitness_evaluator->get_best(population);
+
+    // Rastrear la mejor solución factible encontrada
+    for (const auto& ind : population) {
+      if (ind.is_valid && (!found_valid_solution || ind.fitness > best_valid_individual.fitness)) {
+        best_valid_individual = ind;
+        found_valid_solution = true;
+      }
+    }
   }
 
   /**
@@ -275,8 +284,6 @@ class BaseGA : public GeneticSolver
     evaluate_population();
     update_best_solution();
 
-    fitness_history.push_back(best_individual.fitness);
-
     size_t gen = 0;
     while (gen < generations)
     {
@@ -313,11 +320,25 @@ class BaseGA : public GeneticSolver
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
       end_time - start_time);
 
+    // Req 5.1: reportar la mejor solución factible si la mejor por fitness es inválida
+    Individual final_best = best_individual;
+    if (!final_best.is_valid && found_valid_solution) {
+      final_best = best_valid_individual;
+      std::cout << "\n[WARNING] Best fitness solution is INVALID."
+                << "\n[WARNING] Reporting best VALID solution instead." << std::endl;
+    }
+
     std::cout << "\n=== Results ===" << std::endl;
-    std::cout << "Best: " << best_individual.fitness << std::endl;
-    std::cout << "Valid: " << (best_individual.is_valid ? "Yes" : "No")
+    std::cout << "Best fitness: " << final_best.fitness << std::endl;
+    std::cout << "Feasible: " << (final_best.is_valid ? "Yes" : "No")
               << std::endl;
     std::cout << "Execution time: " << duration.count() << " ms" << std::endl;
+
+    // Mostrar estadísticas de factibilidad
+    int valid_count = 0;
+    for (const auto& ind : population) if (ind.is_valid) valid_count++;
+    std::cout << "Feasible solutions (%): "
+              << 100.0f * valid_count / (float)population.size() << std::endl;
 
     if (!generation_stats_history.empty())
     {
@@ -344,7 +365,13 @@ class BaseGA : public GeneticSolver
     std::cout << "==============================\n" << std::endl;
   }
 
-  Individual get_best() override { return best_individual; }
+  Individual get_best() override {
+    // Req 5.1: retornar mejor factible si el mejor fitness es inválido
+    if (!best_individual.is_valid && found_valid_solution) {
+      return best_valid_individual;
+    }
+    return best_individual;
+  }
 
   const std::vector<float>& get_fitness_history() const override
   {

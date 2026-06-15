@@ -10,7 +10,7 @@
  * Paraleliza en GPU:
  *   - Evaluación de aptitud (fitness_kernel)
  *   - Selección por torneo + cruzamiento + mutación (reproduce_kernel)
- *   - Búsqueda del mejor individuo (reduce_best_kernel)
+ *   - Búsqueda del mejor individuo en CPU (KnapsackFitness::get_best)
  *
  * Métricas registradas por generación:
  *   - Tiempo de kernel de fitness      (cudaEvent_t)
@@ -58,11 +58,15 @@ protected:
     curandState* d_rng_states;
 
     // ── Acumuladores de métricas CUDA (en ms) ───────────────────────
-    float total_kernel_fitness_ms  = 0.f; ///< suma tiempo kernel fitness
-    float total_kernel_repro_ms    = 0.f; ///< suma tiempo kernel reproducción
-    float total_transfer_h2d_ms    = 0.f; ///< suma transferencias Host→Device
-    float total_transfer_d2h_ms    = 0.f; ///< suma transferencias Device→Host
-    long  timing_samples           = 0;   ///< número de generaciones medidas
+    float total_kernel_fitness_ms  = 0.f;
+    float total_kernel_repro_ms    = 0.f;
+    float total_transfer_h2d_ms    = 0.f;
+    float total_transfer_d2h_ms    = 0.f;
+    long  timing_samples           = 0;
+
+    // ── Buffers para cromosomas de mejores individuos (evita D→H cada gen) ──
+    std::vector<uint8_t> h_best_chrom;
+    std::vector<uint8_t> h_best_valid_chrom;
 
     // ── Métodos internos ─────────────────────────────────────────────
     void flatten_instance();
@@ -72,7 +76,6 @@ protected:
     void do_reproduction()       override;
     void free_device_memory();
 
-    /** Mide ms entre dos cudaEvents ya registrados */
     float elapsed_ms(cudaEvent_t start, cudaEvent_t stop);
 
 public:
@@ -105,6 +108,9 @@ public:
     float get_transfer_h2d_ms()    const { return total_transfer_h2d_ms;   }
     float get_transfer_d2h_ms()    const { return total_transfer_d2h_ms;   }
     long  get_timing_samples()     const { return timing_samples;          }
+
+    /** Descarga el cromosoma del mejor individuo desde GPU (lazy, solo al final) */
+    Individual get_best() override;
 
     /** Porcentaje de soluciones válidas en la población final */
     float get_feasible_pct() const {

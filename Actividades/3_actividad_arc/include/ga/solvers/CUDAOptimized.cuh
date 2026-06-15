@@ -12,8 +12,7 @@
  *  2. Accesos coalescentes garantizados mediante la representación
  *     genes[ind * n_items + gene] ya presente en CUDABasic.
  *
- *  3. Reducción paralela con shared memory para encontrar el mejor
- *     individuo (reduce_best_kernel_opt) y para acumular peso/volumen
+ *  3. Reducción paralela con shared memory para acumular peso/volumen
  *     por individuo (fitness con reducción intra-bloque).
  *
  *  4. Ajuste dinámico del tamaño de bloque: el constructor acepta
