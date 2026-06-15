@@ -56,18 +56,22 @@ RE_PATTERNS = {
 }
 
 
-def run_binary(bin_path: str, args: list[str], timeout: int = 600) -> str:
+def run_binary(bin_path: str, args: list[str], timeout: int = 3600) -> str:
     """Run the binary and return stdout as string."""
     cmd = [bin_path] + args
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
-    if result.returncode != 0:
-        print(f"  [WARN] Binary returned code {result.returncode}: {result.stderr.strip()}")
-    return result.stdout
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if result.returncode != 0:
+            print(f"  [WARN] Binary returned code {result.returncode}: {result.stderr.strip()}")
+        return result.stdout
+    except subprocess.TimeoutExpired:
+        print(f"  [TIMEOUT] Exceeded {timeout}s ({' '.join(cmd[-8:])})")
+        return ""
 
 
 def parse_output(stdout: str) -> dict[str, str]:
@@ -194,7 +198,7 @@ def generate_hardware_report(results_dir: str) -> str:
 # ─────────────────────────────────────────────
 # EXP 1: Main Design
 # ─────────────────────────────────────────────
-def run_exp1(bin_path: str, data_dir: str, results_dir: str) -> str:
+def run_exp1(bin_path: str, data_dir: str, results_dir: str, timeout: int = 3600) -> str:
     """Run EXP 1 — Variants × Instances × Populations × 10 Seeds."""
     csv_path = os.path.join(results_dir, "exp1_main_design.csv")
     total = len(INSTANCES) * len(POPULATIONS) * len(VARIANTS) * len(SEEDS)
@@ -221,7 +225,7 @@ def run_exp1(bin_path: str, data_dir: str, results_dir: str) -> str:
                         print(f"  [{pct}%] EXP1 -> {instance} | pop={pop} | {variant} | seed={seed}")
 
                         args = build_cmd_args(data_dir, instance, variant, seed, pop)
-                        stdout = run_binary(bin_path, args)
+                        stdout = run_binary(bin_path, args, timeout=timeout)
                         parsed = parse_output(stdout)
 
                         row = {
@@ -250,7 +254,7 @@ def run_exp1(bin_path: str, data_dir: str, results_dir: str) -> str:
 # ─────────────────────────────────────────────
 # EXP 2: Block Size Effect
 # ─────────────────────────────────────────────
-def run_exp2(bin_path: str, data_dir: str, results_dir: str) -> str:
+def run_exp2(bin_path: str, data_dir: str, results_dir: str, timeout: int = 3600) -> str:
     """Run EXP 2 — Block Size effect (large instance, fixed population)."""
     csv_path = os.path.join(results_dir, "exp2_block_size_effect.csv")
     instance = "large"
@@ -276,7 +280,7 @@ def run_exp2(bin_path: str, data_dir: str, results_dir: str) -> str:
                     print(f"  [{pct}%] EXP2 -> block={block} | {variant} | seed={seed}")
 
                     args = build_cmd_args(data_dir, instance, variant, seed, population, block_size=block)
-                    stdout = run_binary(bin_path, args)
+                    stdout = run_binary(bin_path, args, timeout=timeout)
                     parsed = parse_output(stdout)
 
                     row = {
@@ -540,6 +544,10 @@ def main() -> None:
         "--exp-only", type=int, choices=[1, 2, 3, 4], default=None,
         help="Run only a single experiment (1-4). EXP 3 and 4 require EXP 1 data.",
     )
+    parser.add_argument(
+        "--timeout", type=int, default=3600,
+        help="Per-run timeout in seconds (default: 3600)",
+    )
     args = parser.parse_args()
 
     # Resolve relative to script location or cwd
@@ -567,6 +575,7 @@ def main() -> None:
     print(f"  Results:     {results_dir}")
     print(f"  Generations: {GENERATIONS}")
     print(f"  Seeds:       {SEEDS[0]}-{SEEDS[-1]}")
+    print(f"  Timeout:     {args.timeout}s per run")
     print()
 
     # ── Hardware report ──
@@ -578,7 +587,7 @@ def main() -> None:
     # ── EXP 1 ──
     if args.exp_only is None or args.exp_only == 1:
         print(f"[2/6] Running EXP 1 — Main Design ({len(INSTANCES) * len(POPULATIONS) * len(VARIANTS) * len(SEEDS)} runs)...")
-        exp1_csv = run_exp1(bin_path, data_dir, results_dir)
+        exp1_csv = run_exp1(bin_path, data_dir, results_dir, timeout=args.timeout)
         print()
     else:
         exp1_csv = os.path.join(results_dir, "exp1_main_design.csv")
@@ -586,7 +595,7 @@ def main() -> None:
     # ── EXP 2 ──
     if args.exp_only is None or args.exp_only == 2:
         print(f"[3/6] Running EXP 2 — Block Size Effect ({len(BLOCK_SIZES) * len(VARIANTS_CUDA) * len(SEEDS)} runs)...")
-        run_exp2(bin_path, data_dir, results_dir)
+        run_exp2(bin_path, data_dir, results_dir, timeout=args.timeout)
         print()
 
     # ── EXP 3 & 4 (derived from EXP 1) ──
