@@ -38,7 +38,6 @@ find_package(CUDAToolkit REQUIRED)
 set(CUDA_SOURCES
   src/ga/cuda/fitness_kernel.cu
   src/ga/cuda/operators_kernel.cu
-  src/ga/cuda/reduction_kernel.cu
   src/ga/solvers/CUDABasic.cu
   src/ga/solvers/CUDAOptimized.cu
 )

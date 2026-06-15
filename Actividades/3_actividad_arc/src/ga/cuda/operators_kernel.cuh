@@ -45,23 +45,10 @@ __global__ void reproduce_kernel(
     const int*     __restrict__ incomp_b,    // [n_incomp]
     const int*     __restrict__ dep_a,       // [n_dep]
     const int*     __restrict__ dep_b,       // [n_dep]
-    int   max_weight,
-    int   max_volume,
+    float max_weight,
+    float max_volume,
     int   n_incomp,
     int   n_dep
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Kernel de elitismo
-// Copia los top-k individuos de 'population' (ya ordenados por fitness)
-// sobre los peores k de 'offspring'.
-// ─────────────────────────────────────────────────────────────────────────────
-__global__ void elitism_kernel(
-    const uint8_t* __restrict__ elite_genes,  // [k * n_items]
-    uint8_t*       offspring,                 // [pop_size * n_items]
-    const int*     __restrict__ worst_idx,    // [k] índices en offspring
-    int   k,
-    int   n_items
 );
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -24,7 +24,6 @@ class IslandsParallel : public BaseGA
   int num_islands;
   int num_threads;
   std::vector<std::vector<Individual>> islands;
-  std::vector<Individual> island_offspring;
   size_t migration_interval;
 
   protected:

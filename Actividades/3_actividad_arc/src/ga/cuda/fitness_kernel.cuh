@@ -74,17 +74,6 @@ __global__ void fitness_kernel_opt(
     int pop_size
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Kernel de reducción: encuentra índice del mejor individuo
-// ─────────────────────────────────────────────────────────────────────────────
-__global__ void reduce_best_kernel(
-    const float*   __restrict__ fitness,
-    const uint8_t* __restrict__ is_valid,
-    int*   best_idx_out,
-    float* best_fit_out,
-    int pop_size
-);
-
 // ── Helper device ─────────────────────────────────────────────────────────────
 __device__ inline float clamp01(float v) {
     return v < 0.f ? 0.f : (v > 1.f ? 1.f : v);

@@ -1,7 +1,6 @@
 #include "ga/solvers/CUDABasic.cuh"
 #include "ga/cuda/fitness_kernel.cuh"
 #include "ga/cuda/operators_kernel.cuh"
-#include "ga/cuda/reduction_kernel.cuh"
 #include "config/constants.hpp"
 #include <algorithm>
 #include <iostream>
@@ -289,6 +288,34 @@ void CUDABasic::evaluate_population()
         population[i].is_valid      = (h_valid[i] == 1);
     }
 
+    // Rastrear mejores individuos y descargar solo sus cromosomas (unos pocos KB)
+    // en vez de toda la población (MB). Req 6.2: evitar transferencias masivas.
+    size_t best_idx = 0;
+    size_t best_valid_idx = SIZE_MAX;
+    for (size_t i = 1; i < pop_sz; ++i) {
+        if (population[i].fitness > population[best_idx].fitness)
+            best_idx = i;
+    }
+    for (size_t i = 0; i < pop_sz; ++i) {
+        if (population[i].is_valid) {
+            if (best_valid_idx == SIZE_MAX || population[i].fitness > population[best_valid_idx].fitness)
+                best_valid_idx = i;
+        }
+    }
+
+    // Descargar solo el cromosoma del mejor individuo (n_items bytes, no pop_sz*n_items)
+    h_best_chrom.resize(n_items);
+    CUDA_CHECK(cudaMemcpy(h_best_chrom.data(),
+                          d_population + best_idx * (size_t)n_items,
+                          n_items * sizeof(uint8_t), cudaMemcpyDeviceToHost));
+
+    if (best_valid_idx != SIZE_MAX) {
+        h_best_valid_chrom.resize(n_items);
+        CUDA_CHECK(cudaMemcpy(h_best_valid_chrom.data(),
+                              d_population + best_valid_idx * (size_t)n_items,
+                              n_items * sizeof(uint8_t), cudaMemcpyDeviceToHost));
+    }
+
     ++timing_samples;
 }
 
@@ -312,7 +339,7 @@ void CUDABasic::do_reproduction()
         d_values, d_weights, d_volumes,
         d_incomp_a, d_incomp_b,
         d_dep_a, d_dep_b,
-        (int)instance.max_weight, (int)instance.max_volume,
+        instance.max_weight, instance.max_volume,
         n_incomp, n_dep);
     cudaEventRecord(k1);
     total_kernel_repro_ms += elapsed_ms(k0, k1);
@@ -334,28 +361,14 @@ void CUDABasic::do_reproduction()
             (size_t)n_items*sizeof(uint8_t), cudaMemcpyDeviceToDevice));
     }
 
-    // ── Swap offspring → population ───────────────────────────────────
+    // ── Swap offspring → population (todo en GPU, sin D→H) ──────────
     int total = (int)pop_sz * n_items;
     swap_populations_kernel<<<(total+block_size-1)/block_size, block_size>>>(
         d_population, d_offspring, (int)pop_sz, n_items);
     CUDA_CHECK(cudaDeviceSynchronize());
-
-    // ── Medir D→H de cromosomas (necesario para log en CPU) ───────────
-    std::vector<uint8_t> h_genes(pop_sz * (size_t)n_items);
-    EVENT_CREATE(d0, d1);
-    cudaEventRecord(d0);
-    CUDA_CHECK(cudaMemcpy(h_genes.data(), d_population,
-                          pop_sz*(size_t)n_items*sizeof(uint8_t),
-                          cudaMemcpyDeviceToHost));
-    cudaEventRecord(d1);
-    total_transfer_d2h_ms += elapsed_ms(d0, d1);
-    EVENT_DESTROY(d0, d1);
-
-    for (size_t i = 0; i < pop_sz; ++i) {
-        population[i].chromosome.resize(n_items);
-        for (int g = 0; g < n_items; ++g)
-            population[i].chromosome[g] = (h_genes[i*(size_t)n_items+g] != 0);
-    }
+    // NOTA: No se descargan cromosomas a CPU cada generación (Req 6.2).
+    // Los cromosomas del mejor individuo se descargan lazy en get_best().
+    // Solo se transfieren fitness/penalty/flags escalares (~16 bytes/ind).
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -372,4 +385,32 @@ void CUDABasic::free_device_memory()
     sf(d_dep_a);      sf(d_dep_b);
     sf(d_cat_id);     sf(d_cat_min);   sf(d_cat_max);
     sf(d_rng_states);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// get_best  — descarga lazy del cromosoma del mejor individuo desde GPU
+// Solo se ejecuta UNA vez, al final de la ejecución, cuando main.cpp lo solicita.
+// Esto evita transferir la población completa D→H cada generación.
+// ─────────────────────────────────────────────────────────────────────────────
+Individual CUDABasic::get_best()
+{
+    Individual best = BaseGA::get_best();
+
+    // Si ya tiene cromosoma válido, no re-descargar
+    if (best.chromosome.size() == (size_t)n_items)
+        return best;
+
+    // Determinar qué cromosoma usar: mejor fitness o mejor factible
+    const std::vector<uint8_t>& src =
+        (!best.is_valid && found_valid_solution && !h_best_valid_chrom.empty())
+            ? h_best_valid_chrom : h_best_chrom;
+
+    if (src.empty())
+        return best;
+
+    best.chromosome.resize(n_items);
+    for (int g = 0; g < n_items; ++g)
+        best.chromosome[g] = (src[g] != 0);
+
+    return best;
 }

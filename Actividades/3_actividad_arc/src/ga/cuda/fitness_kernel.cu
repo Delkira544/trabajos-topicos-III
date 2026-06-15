@@ -171,15 +171,6 @@ __global__ void fitness_kernel_opt(
             }
         }
 
-        // Nota: para fitness_kernel_opt se asume que c_params contiene cat_rule_id, cat_rule_min, cat_rule_max
-        // Como no tenemos acceso directo, usamos el enfoque de contar de genes
-        // (esta es una limitación de usar solo memoria constante para datos grandes)
-        
-        // ── Violaciones de incompatibilidad ───────────────────────────────
-        // Nota: no podemos validar sin acceso a incomp_a y incomp_b en memoria constante
-        
-        // ── Violaciones de dependencia ────────────────────────────────────
-        // Nota: no podemos validar sin acceso a dep_a y dep_b en memoria constante
 
         float norm_value = (c_params.max_value > 0.f)
                            ? (total_value / c_params.max_value) : 0.f;
@@ -201,45 +192,4 @@ __global__ void fitness_kernel_opt(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// reduce_best_kernel  –  reducción paralela con shared memory
-// ─────────────────────────────────────────────────────────────────────────────
-__global__ void reduce_best_kernel(
-    const float*   __restrict__ fitness,
-    const uint8_t* __restrict__ is_valid,
-    int*   best_idx_out,
-    float* best_fit_out,
-    int pop_size)
-{
-    extern __shared__ float sfit[];
-    int* sidx = (int*)(sfit + blockDim.x);
 
-    int tid = threadIdx.x;
-    int gid = blockIdx.x * blockDim.x + tid;
-
-    float f  = -FLT_MAX;
-    int   ix = -1;
-    if (gid < pop_size) { f = fitness[gid]; ix = gid; }
-
-    sfit[tid] = f;
-    sidx[tid] = ix;
-    __syncthreads();
-
-    for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            int   other = sidx[tid + stride];
-            float fo    = sfit[tid + stride];
-            bool cur_valid   = (ix    >= 0 && is_valid[ix]    == 1u);
-            bool other_valid = (other >= 0 && is_valid[other] == 1u);
-            bool replace = (!cur_valid && other_valid) ||
-                           (cur_valid == other_valid && fo > f);
-            if (replace) { sfit[tid] = fo; sidx[tid] = other; f = fo; ix = other; }
-        }
-        __syncthreads();
-    }
-
-    if (tid == 0) {
-        best_idx_out[blockIdx.x] = sidx[0];
-        best_fit_out[blockIdx.x] = sfit[0];
-    }
-}

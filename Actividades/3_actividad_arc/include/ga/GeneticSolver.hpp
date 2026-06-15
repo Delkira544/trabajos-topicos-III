@@ -10,22 +10,13 @@ class GeneticSolver
 {
   protected:
   KnapsackInstance instance;
-  std::vector<Individual> population;
   size_t population_size;
   size_t generations;
   float mutation_rate;
   float crossover_rate;
   bool verbose;
   std::mt19937 rng;
-
-  void initialize_population()
-  {
-    population.clear();
-    for (size_t i = 0; i < population_size; ++i)
-    {
-      population.push_back(CreateRandomIndividual(rng));
-    }
-  }
+  int initial_seed;
 
   Individual CreateRandomIndividual(std::mt19937& r)
   {
@@ -60,6 +51,9 @@ class GeneticSolver
   // Mejor solución encontrada
   Individual best_individual;
 
+  // Mejor solución factible encontrada (Req 5.1)
+  Individual best_valid_individual;
+
   // Histórico de fitness por generación
   std::vector<float> fitness_history;
 
@@ -70,24 +64,18 @@ class GeneticSolver
                int seed = 0)
   {
     this->instance        = instance;
-    // Usar parámetros o defaults si son 0
     this->population_size = (pop_size > 0) ? pop_size : Config::GeneticAlgorithm::POPULATION_SIZE;
     this->generations     = (num_gens > 0) ? num_gens : Config::GeneticAlgorithm::GENERATIONS;
     this->mutation_rate   = Config::GeneticAlgorithm::MUTATION_RATE;
     this->crossover_rate  = Config::GeneticAlgorithm::CROSSOVER_RATE;
+    this->initial_seed    = seed;
     rng.seed(seed);
   }
   virtual ~GeneticSolver() = default;
 
   virtual void run() = 0;
 
-  /**
-   * @brief Obtiene el mejor individuo encontrado
-   */
   virtual Individual get_best() = 0;
 
-  /**
-   * @brief Obtiene el histórico de fitness
-   */
   virtual const std::vector<float>& get_fitness_history() const = 0;
 };

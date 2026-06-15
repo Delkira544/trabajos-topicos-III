@@ -35,9 +35,8 @@ class Parallel : public BaseGA
     offspring.clear();
     offspring.resize(population_size);
 
-    // CORRECCIÓN 4: Evitar Data Race y creación excesiva de RNG
-    // Inicializar el RNG base ANTES de la región paralela
-    int base_seed = rng() ^ (std::random_device{}());
+    // Usar la semilla original almacenada para reproducibilidad
+    int base_seed = initial_seed;
 
     // Usar structured binding para OpenMP: cada thread inicializa
     // su propio mt19937 UNA SOLA VEZ (no en cada iteración del for)

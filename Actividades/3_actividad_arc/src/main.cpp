@@ -87,7 +87,6 @@ int main(int argc, char** argv)
         std::cout << "\n========== Final Result ==========\n";
         std::cout << "Best fitness:        " << best.fitness                     << "\n";
         std::cout << "Feasible:            " << (best.is_valid ? "Yes" : "No")  << "\n";
-        std::cout << "Hard feasible:       " << (best.hard_feasible ? "Yes":"No")<< "\n";
         std::cout << "Wall-clock time (ms):" << wall_ms                         << "\n";
 
         int count = 0;
@@ -112,9 +111,9 @@ int main(int argc, char** argv)
 
                 if (samples > 0) {
                     std::cout << "Kernel fitness  total (ms):    " << fit_total   << "\n";
-                    std::cout << "Kernel fitness  avg/gen (ms):  " << fit_total / samples   << "\n";
+                    std::cout << "Kernel fitness  avg/gen (ms):  " << (samples > 0 ? fit_total / samples : 0.0f)   << "\n";
                     std::cout << "Kernel repro    total (ms):    " << repro_total << "\n";
-                    std::cout << "Kernel repro    avg/gen (ms):  " << repro_total / samples << "\n";
+                    std::cout << "Kernel repro    avg/gen (ms):  " << (samples > 0 ? repro_total / samples : 0.0f) << "\n";
                     std::cout << "Transfer H->D   total (ms):    " << h2d_total   << "\n";
                     std::cout << "Transfer D->H   total (ms):    " << d2h_total   << "\n";
                     float kernel_total   = fit_total + repro_total;
