@@ -1,0 +1,26 @@
+=== HARDWARE REPORT ===
+
+Generated: 2026-06-15 18:15:01
+Hostname: Meee
+OS: Linux 6.18.23-1-lts
+Platform: Linux-6.18.23-1-lts-x86_64-with-glibc2.43
+
+CPU:
+  Model: AMD Ryzen 5 5500
+  Cores: 6
+  Threads: 12
+  Physical CPUs: 1
+
+GPU:
+  name, memory.total [MiB], driver_version
+  NVIDIA GeForce RTX 4060, 8188 MiB, 595.58.03
+
+CUDA Version:
+  nvcc: NVIDIA (R) Cuda compiler driver
+  Copyright (c) 2005-2026 NVIDIA Corporation
+  Built on Thu_Mar_19_11:12:51_PM_PDT_2026
+  Cuda compilation tools, release 13.2, V13.2.78
+  Build cuda_13.2.r13.2/compiler.37668154_0
+
+RAM:
+  MemTotal:       32750220 kB

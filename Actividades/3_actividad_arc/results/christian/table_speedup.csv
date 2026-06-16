@@ -1,0 +1,10 @@
+Instancia,Población,Speed-up CUDA Basic (avg),Speed-up CUDA Opt (avg)
+small,1024,3.18,3.81
+small,4096,9.90,10.11
+small,16384,19.76,20.43
+medium,1024,23.72,14.76
+medium,4096,55.03,43.36
+medium,16384,133.22,144.95
+large,1024,6.44,3.86
+large,4096,18.38,15.02
+large,16384,0.00,0.00

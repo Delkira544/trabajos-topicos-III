@@ -1,0 +1,27 @@
+Instancia,Población,Variante,Factibles (%)
+small,1024,sequential,100.00
+small,1024,cuda_basic,23.47
+small,1024,cuda_optimized,23.47
+small,4096,sequential,100.00
+small,4096,cuda_basic,22.41
+small,4096,cuda_optimized,22.41
+small,16384,sequential,100.00
+small,16384,cuda_basic,23.75
+small,16384,cuda_optimized,23.75
+medium,1024,sequential,100.00
+medium,1024,cuda_basic,12.02
+medium,1024,cuda_optimized,12.02
+medium,4096,sequential,100.00
+medium,4096,cuda_basic,12.64
+medium,4096,cuda_optimized,12.64
+medium,16384,sequential,100.00
+medium,16384,cuda_basic,13.34
+medium,16384,cuda_optimized,13.34
+large,1024,sequential,100.00
+large,1024,cuda_basic,5.34
+large,1024,cuda_optimized,5.34
+large,4096,sequential,100.00
+large,4096,cuda_basic,5.70
+large,4096,cuda_optimized,5.70
+large,16384,cuda_basic,5.75
+large,16384,cuda_optimized,5.75
