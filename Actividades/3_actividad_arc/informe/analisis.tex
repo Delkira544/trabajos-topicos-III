@@ -14,7 +14,22 @@ Según el desglose del Experimento 1 (Tabla~\ref{tab:exp1_cuda}) para \texttt{cu
 
 Esto ocurre porque el operador de reparación incluido en la reproducción contiene un ciclo \texttt{while} para iterar y descartar ítems que violan incompatibilidades o capacidades. Debido a que las iteraciones necesarias varían drásticamente de un individuo a otro, este kernel sufre de una severa \textbf{divergencia de warps}, obligando a algunos hilos a esperar inactivos mientras otros terminan sus reparaciones.
 
-Al analizar la Tabla~\ref{tab:exp1_factible}, la variante \texttt{sequential} mantiene un 100\% de individuos factibles (el reparador CPU se aplica condicionalmente solo a individuos inválidos), mientras que las versiones CUDA sostienen entre un 5.34\% (instancia \texttt{large}) y un 23.47\% (instancia \texttt{small}). Esto se debe a que la reparación en GPU (\texttt{repair\_chromosome\_gpu}) se aplica incondicionalmente a toda la descendencia, penalizando individuos que el reparador CPU no consideraría necesario corregir.
+Al analizar la Tabla~\ref{tab:exp1_factible}, la variante \texttt{sequential} mantiene un 100\% de individuos factibles mientras que las versiones CUDA sostienen entre un 5.34\% (instancia \texttt{large}) y un 23.47\% (instancia \texttt{small}). Esta diferencia se debe a dos factores:
+
+\begin{enumerate}
+  \item \textbf{Reparador condicional vs.\ incondicional}: en CPU, el reparador
+    \texttt{KnapsackValidator::repair()} solo se invoca si el individuo es
+    infactible, mientras que en GPU la reparación se aplica a toda la descendencia
+    dentro del \texttt{reproduce\_kernel}, pudiendo dañar individuos que ya eran
+    válidos.
+  \item \textbf{Reparación de categorías ausente en GPU}: el reparador CPU incluye
+    una fase específica para resolver excesos de ítems por categoría (Fase 4). La
+    función \texttt{repair\_chromosome\_gpu()} no implementa esta fase, por lo que
+    las violaciones de categoría persisten en los individuos GPU y solo se
+    penalizan, no se corrigen. Dado que \texttt{is\_valid} considera todas las
+    restricciones, los individuos GPU con infracciones de categoría se marcan
+    como inválidos.
+\end{enumerate}
 
 Las transferencias de memoria son prácticamente despreciables: la transferencia \emph{Host-to-Device} (6.70 ms total) se realiza una sola vez al inicio, y las lecturas parciales \emph{Device-to-Host} suman apenas 13.50 ms acumulados en 300 generaciones, gracias a que solo se descargan escalares de fitness y validez ($\sim$10 bytes/ind), no la población completa.
 

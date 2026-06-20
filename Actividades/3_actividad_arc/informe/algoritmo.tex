@@ -18,7 +18,7 @@ de tipo \texttt{uint8\_t[pop\_size $\times$ n\_items]} siguiendo un diseño \emp
       \item Mutación uniforme bit-flip (tasa 0.04 por gen).
       \item Reparación post-mutación (incompatibilidades, dependencias, capacidades).
     \end{enumerate}
-  \item \textbf{Elitismo}: los mejores $k=2$ individuos pasan directamente a la nueva generación.
+  \item \textbf{Elitismo}: el 5\,\% superior de la población ($k \approx 0.05 \times \text{pop\_size}$) pasa directamente a la nueva generación.
   \item \textbf{Búsqueda del mejor}: recorrido lineal en CPU sobre el arreglo de
     fitness, priorizando individuos factibles (\texttt{is\_valid}). El cromosoma del
     mejor individuo se mantiene en GPU y se descarga \emph{una sola vez} al final

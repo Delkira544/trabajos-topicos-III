@@ -84,6 +84,10 @@ tiempo de ejecución y no se registró.}
     \bottomrule
   \end{tabular}
 \end{table}
+\noindent\textit{Nota: ambas variantes CUDA obtienen el mismo fitness promedio
+porque comparten el mismo kernel de reproducción y reparación; la optimización
+solo afecta la evaluación de fitness y las transferencias, no la lógica
+evolutiva subyacente.}
 
 \subsubsection{Desglose de tiempos CUDA (instancia large, pop 4096)}
 
@@ -202,4 +206,6 @@ ampliamente el uso de aceleración hardware.}
 \end{table}
 \noindent\textit{Se observa que el fitness mejora monótonamente al aumentar la
 población, mientras que el tiempo escala de forma sub-lineal en GPU
-(duplicándose de pop 4096 a 16384, frente a cuadruplicarse en CPU).}
+(duplicándose de pop 4096 a 16384, frente a cuadruplicarse en CPU). La
+combinación sequential con pop 16384 se omitió por tiempo de ejecución
+excesivo (estimado $>30$ minutos por semilla).}

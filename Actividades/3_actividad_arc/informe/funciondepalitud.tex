@@ -76,8 +76,21 @@ a lo largo de toda la ejecución. Para ello se mantiene un individuo adicional
 (\texttt{best\_valid\_individual}) que se actualiza en cada generación dentro de
 \texttt{update\_best\_solution()}. La función \texttt{get\_best()} retorna
 automáticamente el mejor factible si el de mayor fitness es inválido, garantizando
-que la solución reportada cumpla todas las restricciones duras del problema.
+que la solución reportada cumpla todas las restricciones implementadas.
 
 En GPU, el cromosoma del mejor individuo (factible o por fitness) se descarga de
 forma diferida (\emph{lazy}) al final de la ejecución mediante \texttt{get\_best()},
 evitando transferir la población completa desde el dispositivo en cada generación.
+
+\subsubsection{Asimetría CPU/GPU en la reparación de categorías}
+
+Existe una diferencia importante entre las variantes CPU y GPU respecto al
+tratamiento de las restricciones por categoría. En la variante \texttt{sequential},
+el operador \texttt{KnapsackValidator::repair()} incluye una fase específica
+(Fase 4) que resuelve categorías con exceso de ítems, eliminando los de menor
+eficiencia hasta cumplir el máximo permitido. En las variantes CUDA, la función
+\texttt{repair\_chromosome\_gpu()} no implementa esta fase, por lo que las
+violaciones de categoría solo se penalizan en la función de aptitud, no se reparan
+activamente. Esto explica que el porcentaje de individuos factibles sea menor en
+GPU que en CPU (5--23\,\% frente a 100\,\%), ya que la bandera \texttt{is\_valid}
+considera todas las restricciones, incluyendo categorías.
