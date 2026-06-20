@@ -1,0 +1,17 @@
+Este trabajo implementó y evaluó tres variantes de un algoritmo genético para el
+problema extendido de la mochila: una versión secuencial en CPU y dos versiones
+paralelas en CUDA (básica y optimizada).
+
+Los resultados principales son:
+
+\begin{enumerate}
+  \item \textbf{La paralelización en GPU produce un Speed-Up masivo.} En la instancia \texttt{medium} con población 16384, la variante CUDA básica alcanzó un \emph{speed-up} de $\approx 133\times$ respecto a la CPU. En la instancia \texttt{large} (10,000 ítems) con población 4096, el algoritmo pasó de demorar $\approx 19.6$ minutos en CPU a solo $\approx 1$ minuto en GPU ($18.4\times$).
+  
+  \item \textbf{El cuello de botella es la reparación heurística.} El kernel de reproducción (que incluye la reparación iterativa) ocupa el 99.2\% del tiempo de GPU. Esto se debe a la severa divergencia de warps: los hilos terminan sus iteraciones de reparación en momentos muy distintos, forzando a otros hilos del mismo warp a esperar inactivos.
+  
+  \item \textbf{Las optimizaciones de memoria compartida y streams fueron contraproducentes en instancias grandes.} La variante \texttt{cuda\_optimized} resultó entre un 18\% y un 67\% más lenta que \texttt{cuda\_basic} en instancias medianas y grandes, debido al overhead de sincronización y a que el kernel de reproducción domina el tiempo total, imposibilitando el solapamiento efectivo con streams.
+  
+  \item \textbf{La transferencia de datos no es un cuello de botella.} La transferencia acumulada D$\to$H en 300 generaciones fue de solo 13.5 ms, gracias a que únicamente se descargan escalares de fitness y validez cada generación ($\sim$10 bytes/individuo), y el cromosoma del mejor individuo se obtiene de forma diferida al final de la ejecución.
+\end{enumerate}
+
+Como trabajo futuro, el principal enfoque debe estar en reescribir la lógica del operador de reparación utilizando reducciones a nivel de warp para calcular prefijos de suma y descartar los ítems excedentes sin ciclos iterativos largos, lo que eliminaría la divergencia de hilos y podría aumentar el \emph{speed-up} fácilmente por encima de $50\times$.

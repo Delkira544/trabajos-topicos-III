@@ -1,0 +1,205 @@
+% =============================================================================
+% EXP 1: COMPARACIÓN DE VARIANTES
+% =============================================================================
+\subsection{EXP 1: Comparación de Variantes}
+
+La Tabla~\ref{tab:exp1_tiempo} presenta el tiempo total promedio, desviación
+estándar, mínimo y máximo para cada combinación instancia $\times$ variante
+$\times$ población con 10 semillas. Los tiempos de las variantes CUDA
+\textbf{incluyen tanto la ejecución de kernels como las transferencias de
+memoria H$\to$D y D$\to$H}.
+
+\subsubsection{Tiempo de ejecución total}
+
+\begin{table}[H]
+  \centering
+  \caption{Tiempo total de ejecución (ms) — 10 semillas por celda}
+  \label{tab:exp1_tiempo}
+  \begin{tabular}{llrrrr}
+    \toprule
+    \textbf{Instancia} & \textbf{Variante} &
+    \textbf{pop=1024} & \textbf{pop=4096} & \textbf{pop=16384} \\
+    \midrule
+    \multirow{3}{*}{small}
+        & sequential      & 896.20 $\pm$ 145.26  & 2876.20 $\pm$ 333.99  & 10718.30 $\pm$ 757.25 \\
+        & cuda\_basic     & 281.40 $\pm$ 194.38  & 290.60 $\pm$ 16.87    & 542.30 $\pm$ 41.80 \\
+        & cuda\_optimized & 235.00 $\pm$ 16.02   & 284.50 $\pm$ 10.25    & 524.60 $\pm$ 42.93 \\
+    \midrule
+    \multirow{3}{*}{medium}
+        & sequential      & 21937.30 $\pm$ 4247.82  & 82461.10 $\pm$ 18435.87 & 417300.10 $\pm$ 25396.79 \\
+        & cuda\_basic     & 924.80 $\pm$ 125.30     & 1498.50 $\pm$ 235.85    & 3132.30 $\pm$ 422.44 \\
+        & cuda\_optimized & 1486.50 $\pm$ 202.18    & 1901.80 $\pm$ 300.63    & 2878.90 $\pm$ 501.33 \\
+    \midrule
+    \multirow{3}{*}{large}
+        & sequential      & 296339.00 $\pm$ 43829.28 & 1177399.90 $\pm$ 100122.13 & --- \\
+        & cuda\_basic     & 45995.90 $\pm$ 9380.15   & 64054.90 $\pm$ 578.10      & 128463.70 $\pm$ 7095.82 \\
+        & cuda\_optimized & 76841.50 $\pm$ 16016.09  & 78410.00 $\pm$ 112.78      & 123894.80 $\pm$ 6768.43 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+\noindent\textit{Nota: la celda large/16384/sequential sobrepasó el límite de
+tiempo de ejecución y no se registró.}
+
+\subsubsection{Porcentaje de soluciones factibles en la población}
+
+\begin{table}[H]
+  \centering
+  \caption{Individuos factibles promedio en la población (\%)}
+  \label{tab:exp1_factible}
+  \begin{tabular}{llrrr}
+    \toprule
+    \textbf{Instancia} & \textbf{Variante} & \textbf{pop=1024} & \textbf{pop=4096} & \textbf{pop=16384} \\
+    \midrule
+    \multirow{3}{*}{small}
+        & sequential      & 100.00 & 100.00 & 100.00 \\
+        & cuda\_basic     & 23.47  & 22.41  & 23.75  \\
+        & cuda\_optimized & 23.47  & 22.41  & 23.75  \\
+    \midrule
+    \multirow{3}{*}{medium}
+        & sequential      & 100.00 & 100.00 & 100.00 \\
+        & cuda\_basic     & 12.02  & 12.64  & 13.34  \\
+        & cuda\_optimized & 12.02  & 12.64  & 13.34  \\
+    \midrule
+    \multirow{3}{*}{large}
+        & sequential      & 100.00 & 100.00 & ---    \\
+        & cuda\_basic     & 5.34   & 5.70   & 5.75   \\
+        & cuda\_optimized & 5.34   & 5.70   & 5.75   \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{Calidad de solución (mejor fitness)}
+
+\begin{table}[H]
+  \centering
+  \caption{Mejor fitness promedio — instancia \texttt{large}}
+  \label{tab:exp1_fitness}
+  \begin{tabular}{lrrr}
+    \toprule
+    \textbf{Variante} & \textbf{pop=1024} & \textbf{pop=4096} & \textbf{pop=16384} \\
+    \midrule
+    sequential        & 0.207512 & 0.209281 & --- \\
+    cuda\_basic       & 0.194788 & 0.196520 & 0.197018 \\
+    cuda\_optimized   & 0.194788 & 0.196520 & 0.197018 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{Desglose de tiempos CUDA (instancia large, pop 4096)}
+
+Los tiempos reportados a continuación corresponden a los totales acumulados
+durante las 300 generaciones. Nótese que la transferencia H$\to$D ocurre una
+sola vez al inicio (subida de datos de instancia), mientras que D$\to$H ocurre
+cada generación para los escalares de fitness, penalización y validez.
+
+\begin{table}[H]
+  \centering
+  \caption{Desglose de tiempos CUDA (ms totales, 300 generaciones, large, pop 4096)}
+  \label{tab:exp1_cuda}
+  \begin{tabular}{lrrrr}
+    \toprule
+    \textbf{Variante} &
+    \textbf{Kernel fitness} &
+    \textbf{Kernel reproducción} &
+    \textbf{H$\to$D} &
+    \textbf{D$\to$H} \\
+    \midrule
+    cuda\_basic      & 502.52 & 62375.12 & 6.70 & 13.50 \\
+    cuda\_optimized  & 501.45 & 76731.43 & 6.71 & 13.60 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+% =============================================================================
+% EXP 2: EFECTO DEL TAMAÑO DE BLOQUE
+% =============================================================================
+\subsection{EXP 2: Efecto del Tamaño de Bloque}
+
+\begin{table}[H]
+  \centering
+  \caption{Tiempo de ejecución (ms) según tamaño de bloque — instancia \texttt{large}, pop 4096, 10 semillas}
+  \label{tab:exp2}
+  \begin{tabular}{lrrrr}
+    \toprule
+    \textbf{Variante} & \textbf{bs=32} & \textbf{bs=64} & \textbf{bs=128} &
+    \textbf{bs=256} \\
+    \midrule
+    cuda\_basic      & 64394.7 & 57640.9 & 64344.1 & 57685.7 \\
+    cuda\_optimized  & 84748.5 & 81553.5 & 79328.9 & 78394.5 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+\textit{Nota: El tamaño óptimo para \texttt{cuda\_basic} se encuentra en bs=64,
+y para \texttt{cuda\_optimized} en bs=256. La diferencia entre variantes se
+mantiene consistente a través de todas las configuraciones de bloque.}
+
+% =============================================================================
+% EXP 3: SPEED-UP GPU vs. CPU
+% =============================================================================
+\subsection{EXP 3: \emph{Speed-up} GPU vs.\ CPU}
+
+El \emph{speed-up} se calcula como $T_{\text{seq}} / T_{\text{GPU}}$, donde
+$T_{\text{GPU}}$ incluye el tiempo total de la variante CUDA (kernels +
+transferencias H$\to$D y D$\to$H).
+
+\begin{table}[H]
+  \centering
+  \caption{\emph{Speed-up} promedio respecto de la variante secuencial}
+  \label{tab:exp3}
+  \begin{tabular}{llrr}
+    \toprule
+    \textbf{Instancia} & \textbf{Población} &
+    \textbf{Speed-up CUDA Basic} & \textbf{Speed-up CUDA Opt.} \\
+    \midrule
+    \multirow{3}{*}{small}
+        & 1024  & 3.18$\times$ & 3.81$\times$ \\
+        & 4096  & 9.90$\times$ & 10.11$\times$ \\
+        & 16384 & 19.76$\times$ & 20.43$\times$ \\
+    \midrule
+    \multirow{3}{*}{medium}
+        & 1024  & 23.72$\times$ & 14.76$\times$ \\
+        & 4096  & 55.03$\times$ & 43.36$\times$ \\
+        & 16384 & 133.22$\times$ & 144.95$\times$ \\
+    \midrule
+    \multirow{3}{*}{large}
+        & 1024  & 6.44$\times$ & 3.86$\times$ \\
+        & 4096  & 18.38$\times$ & 15.02$\times$ \\
+        & 16384 & ---          & ---          \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+\noindent\textit{Nota: la instancia large con pop 16384 no tuvo tiempo
+secuencial de referencia. Los speed-up para medium muestran el mayor
+beneficio de GPU ($>130\times$), donde la carga computacional justifica
+ampliamente el uso de aceleración hardware.}
+
+% =============================================================================
+% EXP 4: EFECTO DEL TAMAÑO DE POBLACIÓN
+% =============================================================================
+\subsection{EXP 4: Efecto del Tamaño de Población}
+
+\begin{table}[H]
+  \centering
+  \caption{Tiempo y fitness según tamaño de población — instancia \texttt{large}}
+  \label{tab:exp4}
+  \begin{tabular}{llrrr}
+    \toprule
+    \textbf{Variante} & \textbf{Métrica} &
+    \textbf{pop=1024} & \textbf{pop=4096} & \textbf{pop=16384} \\
+    \midrule
+    \multirow{2}{*}{sequential}
+        & Tiempo (ms) & 296339.0 & 1177399.9 & --- \\
+        & Fitness     & 0.207512 & 0.209281  & --- \\
+    \midrule
+    \multirow{2}{*}{cuda\_basic}
+        & Tiempo (ms) & 45995.9  & 64054.9   & 128463.7 \\
+        & Fitness     & 0.194788 & 0.196520  & 0.197018 \\
+    \midrule
+    \multirow{2}{*}{cuda\_optimized}
+        & Tiempo (ms) & 76841.5  & 78410.0   & 123894.8 \\
+        & Fitness     & 0.194788 & 0.196520  & 0.197018 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+\noindent\textit{Se observa que el fitness mejora monótonamente al aumentar la
+población, mientras que el tiempo escala de forma sub-lineal en GPU
+(duplicándose de pop 4096 a 16384, frente a cuadruplicarse en CPU).}

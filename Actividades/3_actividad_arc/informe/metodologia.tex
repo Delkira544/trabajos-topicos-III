@@ -1,0 +1,47 @@
+\subsection{Configuración de Experimentos}
+
+\begin{table}[H]
+  \centering
+  \caption{Diseño experimental completo}
+  \label{tab:diseno}
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Factor} & \textbf{Niveles} \\
+    \midrule
+    Instancias       & \texttt{small} (100), \texttt{medium} (1000), \texttt{large} (10000) \\
+    Tamaños de pob.  & 1024, 4096, 16384 \\
+    Variantes        & \texttt{sequential}, \texttt{cuda\_basic}, \texttt{cuda\_optimized} \\
+    Generaciones     & 300 (fijo) \\
+    Tamaño de bloque & 128 (EXP 1, 3, 4); 32, 64, 128, 256, 512 (EXP 2) \\
+    Semillas         & 42, 43, 44, 45, 46, 47, 48, 49, 50, 51 (EXP 1, 3) \\
+                     & 42--46 (EXP 2, 4) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Descripción de los Cuatro Experimentos}
+
+\paragraph{EXP 1 — Diseño principal (270 ejecuciones).}
+Compara las tres variantes en los tres tamaños de instancia y los tres tamaños de
+población, con 10 semillas por celda. Mide tiempo total, tiempo de kernels,
+porcentaje de soluciones factibles y calidad de solución.
+
+\paragraph{EXP 2 — Efecto del tamaño de bloque (50 ejecuciones).}
+Fija instancia \texttt{large} y población 4096; varía el bloque
+(\{32, 64, 128, 256, 512\}) para las dos variantes CUDA con 5 semillas. Permite
+identificar la configuración que mejor aprovecha la ocupancia de los SMs.
+
+\paragraph{EXP 3 — Análisis de \emph{speed-up} (270 ejecuciones).}
+Para cada combinación instancia × población × semilla mide el tiempo de las tres
+variantes y calcula \emph{speed-up} = $T_{\text{seq}} / T_{\text{GPU}}$.
+
+\paragraph{EXP 4 — Efecto del tamaño de población (45 ejecuciones).}
+Fija instancia \texttt{large}; varía población y variante con 5 semillas. Relaciona
+calidad de solución y tiempo con el número de individuos.
+
+\subsection{Reproducibilidad}
+
+Todas las ejecuciones usan semillas explícitas tanto en la CPU
+(\texttt{std::mt19937(seed)}) como en la GPU (\texttt{curand\_init(seed, ind, 0,
+\&states[ind])}). Los resultados se almacenan en archivos CSV en el directorio
+\texttt{results/} con el nombre de cada experimento.

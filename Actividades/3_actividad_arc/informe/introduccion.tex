@@ -1,0 +1,75 @@
+\subsection{El Problema de la Mochila Clásico}
+
+El problema de la mochila 0/1 es un problema de optimización combinatoria NP-difícil
+ampliamente estudiado en la literatura. Dado un conjunto $\mathcal{N} = \{1, 2, \ldots, n\}$
+de $n$ ítems, cada uno con un valor $v_i$ y un peso $w_i$, y una mochila de capacidad
+máxima de peso $W$, el problema consiste en seleccionar un subconjunto de ítems que
+maximice el valor total sin superar la capacidad:
+
+\begin{equation}
+  \text{Maximizar} \quad Z = \sum_{i=1}^{n} v_i x_i
+  \label{eq:obj_clasico}
+\end{equation}
+\begin{equation}
+  \text{sujeto a} \quad \sum_{i=1}^{n} w_i x_i \leq W, \quad x_i \in \{0,1\}
+  \label{eq:cap_clasico}
+\end{equation}
+
+\subsection{Versión Extendida Implementada}
+
+Para esta actividad se implementa una versión extendida donde cada ítem $i$ posee:
+valor $v_i$, peso $w_i$, volumen $u_i$ y categoría $c_i$. La mochila añade las siguientes
+restricciones sobre las restricciones clásicas:
+
+\begin{enumerate}[label=\textbf{R\arabic*.}]
+  \item \textbf{Restricción de peso}: $\displaystyle\sum_{i=1}^{n} w_i x_i \leq W$
+  \item \textbf{Restricción de volumen}: $\displaystyle\sum_{i=1}^{n} u_i x_i \leq V$
+  \item \textbf{Restricciones por categoría}: para cada categoría $k$,
+        $\text{min}_k \leq \displaystyle\sum_{i : c_i = k} x_i \leq \text{max}_k$
+  \item \textbf{Incompatibilidades}: para ciertos pares $(a,b)$, $x_a + x_b \leq 1$
+  \item \textbf{Dependencias}: si $x_a = 1$, entonces $x_b = 1$
+\end{enumerate}
+
+La formulación extendida queda:
+
+\begin{equation}
+  \text{Maximizar} \quad Z = \sum_{i=1}^{n} v_i x_i
+\end{equation}
+\begin{align}
+  \text{sujeto a} \quad &\sum_{i} w_i x_i \leq W \notag\\
+                        &\sum_{i} u_i x_i \leq V \notag\\
+                        &\text{min}_k \leq \sum_{i: c_i=k} x_i \leq \text{max}_k \quad \forall k \notag\\
+                        &x_a + x_b \leq 1 \quad \forall (a,b) \in \mathcal{I} \notag\\
+                        &x_a \leq x_b \quad \forall (a,b) \in \mathcal{D} \notag\\
+                        &x_i \in \{0,1\} \notag
+\end{align}
+
+donde $\mathcal{I}$ es el conjunto de pares incompatibles y $\mathcal{D}$ el conjunto de
+pares con dependencia.
+
+\subsection{Generación de Instancias}
+
+Las instancias se generan con tres tamaños para cubrir distintos escenarios de rendimiento:
+
+\begin{table}[H]
+  \centering
+  \caption{Configuración de las tres instancias de prueba}
+  \label{tab:instancias}
+  \begin{tabular}{lccccc}
+    \toprule
+    \textbf{Instancia} & \textbf{Ítems} & \textbf{$W$} & \textbf{$V$} &
+    \textbf{Incomp.} & \textbf{Dep.} \\
+    \midrule
+    Pequeña (\texttt{small})  & 100    &
+      $0.40 \times \sum w_i$ & $0.40 \times \sum u_i$ & $\approx50$  & $\approx30$  \\
+    Mediana (\texttt{medium}) & 1,000  &
+      $0.40 \times \sum w_i$ & $0.40 \times \sum u_i$ & $\approx500$ & $\approx300$ \\
+    Grande (\texttt{large})   & 10,000 &
+      $0.40 \times \sum w_i$ & $0.40 \times \sum u_i$ & $\approx5000$& $\approx3000$\\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Las capacidades máximas se fijaron al 40\,\% de la suma total de pesos y volúmenes
+respectivamente, asegurando que existan soluciones factibles no triviales (instancias de
+dificultad media, según la recomendación de la actividad).

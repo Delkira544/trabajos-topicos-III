@@ -1,0 +1,92 @@
+\subsection{Representación del Cromosoma}
+
+Cada individuo es un cromosoma binario de longitud $n$ (número de ítems):
+$X = (x_1, x_2, \ldots, x_n)$, donde $x_i = 1$ indica que el ítem $i$ está
+seleccionado. En memoria de GPU la población se almacena en un arreglo plano 1D
+de tipo \texttt{uint8\_t[pop\_size $\times$ n\_items]} siguiendo un diseño \emph{Array of Structures} (AoS) lógico con la disposición \texttt{genes[ind $\times$ n\_items + gene]}.
+
+
+\subsection{Flujo General del Algoritmo}
+
+\begin{enumerate}
+  \item \textbf{Inicialización}: generación aleatoria de la población con cuRAND.
+  \item \textbf{Evaluación}: cálculo del fitness para cada individuo (kernel).
+  \item \textbf{Reproducción}:
+    \begin{enumerate}[label=\alph*.]
+      \item Selección por torneo (tamaño 3, configurable).
+      \item Cruzamiento de un punto (tasa 0.7).
+      \item Mutación uniforme bit-flip (tasa 0.04 por gen).
+      \item Reparación post-mutación (incompatibilidades, dependencias, capacidades).
+    \end{enumerate}
+  \item \textbf{Elitismo}: los mejores $k=2$ individuos pasan directamente a la nueva generación.
+  \item \textbf{Búsqueda del mejor}: recorrido lineal en CPU sobre el arreglo de
+    fitness, priorizando individuos factibles (\texttt{is\_valid}). El cromosoma del
+    mejor individuo se mantiene en GPU y se descarga \emph{una sola vez} al final
+    mediante \texttt{get\_best()}, evitando transferencias masivas D$\to$H.
+  \item \textbf{Criterio de término}: número fijo de generaciones (300).
+\end{enumerate}
+
+\subsection{Variante 1: Secuencial en CPU (\texttt{sequential})}
+
+Implementación de referencia en C++17 con un único hilo. Sirve como línea base para
+calcular el \emph{speed-up} de las variantes CUDA. Los operadores siguen el flujo
+estándar usando \texttt{std::mt19937} como generador de números aleatorios.
+
+\subsection{Variante 2: CUDA Básico (\texttt{cuda\_basic})}
+
+Paralelización directa de los operadores principales en GPU:
+
+\begin{itemize}
+  \item \textbf{\texttt{fitness\_kernel}}: un hilo por individuo. Cada hilo recorre
+    sus $n$ genes, acumula valor/peso/volumen y evalúa las cuatro clases de violaciones.
+    Usa memoria global para todos los datos de la instancia.
+  \item \textbf{\texttt{reproduce\_kernel}}: un hilo por hijo. Fusiona selección por
+    torneo, cruzamiento, mutación y reparación en un único lanzamiento. El estado
+    cuRAND de cada hilo se almacena en \texttt{curandState[pop\_size]}.
+  \item \textbf{Transferencia eficiente}: solo los escalares de fitness, penalización
+    y validez ($\sim$10 bytes/ind) se transfieren D$\to$H cada generación. El
+    cromosoma del mejor individuo ($n$ bytes) se descarga de forma diferida
+    (\emph{lazy}) en \texttt{get\_best()} al finalizar la evolución, eliminando
+    la transferencia masiva de la población completa.
+  \item \textbf{Medición de tiempos}: cada kernel y cada transferencia se mide con
+    pares \texttt{cudaEvent\_t}, acumulando totales separados para fitness,
+    reproducción, H$\to$D y D$\to$H.
+  \item Los datos de la instancia (valores, pesos, volúmenes, restricciones) se
+    transfieren \emph{una sola vez} antes del bucle evolutivo y permanecen en GPU
+    durante toda la ejecución.
+\end{itemize}
+
+\subsection{Variante 3: CUDA Optimizado (\texttt{cuda\_optimized})}
+
+Extiende \texttt{CUDABasic} con las siguientes optimizaciones medibles:
+
+\begin{enumerate}
+  \item \textbf{Memoria constante} (\texttt{\_\_constant\_\_}): cuando $n \leq 3000$,
+    valores, pesos, volúmenes e IDs de categoría se suben a memoria constante
+    (\texttt{c\_values}, \texttt{c\_weights}, etc.), cuyo \emph{cache} L1 dedicado
+    reduce la latencia de acceso para lecturas uniforme-broadcast dentro de un warp.
+  \item \textbf{Evaluación intra-bloque con \emph{shared memory}} 
+    (\texttt{fitness\_kernel\_opt}): un bloque por individuo
+    (\texttt{blockIdx.x = ind}). Los hilos del bloque procesan los genes en paralelo
+    y utilizan memoria compartida para una reducción local (\emph{block reduction})
+    acumulando valor, peso y volumen. Esto garantiza lecturas 100\% coalescentes y
+    maximiza el ancho de banda. Solo se activa cuando $n \leq 3000$ y la instancia
+    no tiene restricciones complejas (categorías, incompatibilidades, dependencias).
+  \item \textbf{Streams CUDA}: la evaluación de fitness y la reproducción se solapan
+    usando dos streams (\texttt{stream\_eval}, \texttt{stream\_repro}) con memoria
+    \emph{pinned} (\texttt{cudaHostRegister}), permitiendo transferencias asíncronas
+    y ocultando parte de la latencia de los kernels.
+  \item \textbf{Tamaño de bloque óptimo}: se utiliza
+    \texttt{cudaOccupancyMaxPotentialBlockSize} para determinar el tamaño de bloque
+    que maximiza la ocupancia de los SM para el \texttt{reproduce\_kernel}.
+  \item \textbf{Control de divergencia de warps}: los kernels de selección y mutación
+    minimizan ramas dependientes del ID de hilo, manteniendo threads del mismo warp
+    en la misma ruta de ejecución el mayor tiempo posible.
+  \item \textbf{Parámetros escalares en memoria constante} (\texttt{c\_params}):
+    los parámetros \texttt{FitnessParams} (capacidades, pesos de penalización, etc.)
+    se almacenan en memoria constante y se transmiten a todos los hilos sin consumir
+    registros adicionales.
+  \item \textbf{Eventos de temporización}: cada kernel y cada transferencia se mide
+    con \texttt{cudaEvent\_t} en el stream correspondiente, permitiendo desglosar
+    con precisión los tiempos de fitness, reproducción y transferencias.
+\end{enumerate}

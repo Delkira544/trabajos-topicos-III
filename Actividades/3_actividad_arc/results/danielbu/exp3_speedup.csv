@@ -1,0 +1,10 @@
+﻿instance,population,speedup_basic,speedup_opt
+small,512,2.56,2.85
+small,1024,4.08,3.7
+small,4096,9.29,9.76
+medium,512,7.62,5.17
+medium,1024,16.8,10.03
+medium,4096,46.71,31.37
+large,512,2.4,1.91
+large,1024,3.66,2.46
+large,4096,14.2,9.9

@@ -1,0 +1,83 @@
+\subsection{Restricciones Duras y Blandas}
+
+Para esta implementación se distinguen dos categorías de restricciones:
+
+\textbf{Restricciones duras} (la solución final \emph{debe} cumplirlas):
+\begin{itemize}
+  \item Peso máximo $W$
+  \item Volumen máximo $V$
+  \item Incompatibilidades entre ítems
+  \item Dependencias obligatorias entre ítems
+\end{itemize}
+
+\textbf{Restricciones blandas} (pueden violarse durante la evolución, penalizadas):
+\begin{itemize}
+  \item Restricciones por categoría (mínimo/máximo de ítems por categoría)
+\end{itemize}
+
+El tratamiento blando de las categorías permite que el algoritmo explore regiones
+factibles cercanas, evitando descartar prematuramente individuos con buen valor pero
+que aún no satisfacen la composición de categorías.
+
+\subsection{Función de Aptitud}
+
+La función de aptitud combina el valor normalizado de la solución con una penalización
+ponderada de las violaciones:
+
+\begin{equation}
+  f(X) = \omega_{\text{obj}} \cdot \frac{\sum_i v_i x_i}{v_{\max}}
+         - \omega_{\text{pen}} \cdot \text{viol}(X)
+  \label{eq:fitness}
+\end{equation}
+
+donde la violación total normalizada es:
+
+\begin{align}
+  \text{viol}(X) &=
+    \alpha \cdot \text{clamp}_{[0,1]}\!\left(\frac{E_w}{W}\right)
+  + \beta  \cdot \text{clamp}_{[0,1]}\!\left(\frac{E_v}{V}\right) \notag\\
+  &+ \gamma \cdot \text{clamp}_{[0,1]}\!\left(\frac{E_{\text{cat}}}{|\mathcal{C}|}\right)
+  + \delta \cdot \text{clamp}_{[0,1]}\!\left(\frac{E_{\text{incomp}}}{|\mathcal{I}|}\right)
+  + \varepsilon \cdot \text{clamp}_{[0,1]}\!\left(\frac{E_{\text{dep}}}{|\mathcal{D}|}\right)
+  \label{eq:viol}
+\end{align}
+
+con $E_w, E_v$ el exceso de peso y volumen respectivamente, y $E_{\text{cat}},
+E_{\text{incomp}}, E_{\text{dep}}$ el número de violaciones de cada tipo.
+
+\subsection{Calibración de Pesos de Penalización}
+
+Los pesos $(\alpha, \beta, \gamma, \delta, \varepsilon)$ se calibraron mediante el
+módulo \texttt{penalty\_tuner}, que realiza una búsqueda en grilla con paso 0.10
+sobre el simplex $\alpha + \beta + \gamma + \delta + \varepsilon = 1$. Se usaron
+2 semillas y 100 generaciones por configuración con la instancia grande.
+
+\begin{table}[H]
+  \centering
+  \caption{Pesos de penalización óptimos encontrados (Avg. Penalty minimizado)}
+  \label{tab:penalty}
+  \begin{tabular}{lccccc}
+    \toprule
+    & $\alpha$ (peso) & $\beta$ (volumen) & $\gamma$ (categoría)
+    & $\delta$ (incomp.) & $\varepsilon$ (dep.) \\
+    \midrule
+    \textbf{Valor óptimo} & 0.25 & 0.0 & 0.25 & 0.25 & 0.25 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+El hallazgo clave es que el problema requiere un balance equitativo entre las penalizaciones de peso, categorías, incompatibilidades y dependencias. La violación de volumen tiene impacto nulo ($\beta=0.0$) debido a la naturaleza de la instancia, donde la restricción de peso es mucho más estricta que la de volumen. Aunque el operador de reparación en GPU mitiga en gran medida las violaciones de capacidad, incompatibilidad y dependencias, las penalizaciones no nulas actúan como un gradiente suave que guía al algoritmo genético hacia regiones factibles antes de que ocurra la reparación.
+
+\subsection{Verificación de Factibilidad Final (Req 5.1)}
+
+Si el individuo de mayor fitness al finalizar la evolución viola alguna restricción
+dura, el sistema reporta como resultado la \emph{mejor solución factible} encontrada
+a lo largo de toda la ejecución. Para ello se mantiene un individuo adicional
+(\texttt{best\_valid\_individual}) que se actualiza en cada generación dentro de
+\texttt{update\_best\_solution()}. La función \texttt{get\_best()} retorna
+automáticamente el mejor factible si el de mayor fitness es inválido, garantizando
+que la solución reportada cumpla todas las restricciones duras del problema.
+
+En GPU, el cromosoma del mejor individuo (factible o por fitness) se descarga de
+forma diferida (\emph{lazy}) al final de la ejecución mediante \texttt{get\_best()},
+evitando transferir la población completa desde el dispositivo en cada generación.
