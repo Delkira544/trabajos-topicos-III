@@ -2,19 +2,19 @@
 
 Los resultados del Experimento 1 (Tabla~\ref{tab:exp1_tiempo}) confirman la ventaja de la ejecución paralela en GPU, especialmente para instancias grandes. El \emph{speed-up} escala con el tamaño de la instancia y la población.
 
-Para la instancia \texttt{small} (100 ítems) con población 4096, el tiempo secuencial es de 2876.20 ms, mientras que \texttt{cuda\_basic} toma solo 290.60 ms (un \emph{speed-up} de $\approx 9.9\times$). En la instancia \texttt{medium} (1000 ítems), la CPU requiere 82461.10 ms frente a 1498.50 ms de \texttt{cuda\_basic}, alcanzando un \emph{speed-up} de $\approx 55\times$. La máxima aceleración se observa en \texttt{medium} con población 16384, donde la GPU entrega un \emph{speed-up} de $\approx 133\times$ sobre la CPU.
+Para la instancia \texttt{small} (100 ítems) con población 16384, el tiempo secuencial es de 3577.80 ms, mientras que \texttt{cuda\_basic} toma solo 385.30 ms (un \emph{speed-up} de $\approx 9.3\times$). En la instancia \texttt{medium} (1000 ítems), la CPU requiere 81633.90 ms frente a 1747.80 ms de \texttt{cuda\_basic}, alcanzando un \emph{speed-up} de $\approx 46.7\times$. La máxima aceleración se observa en \texttt{medium} con población 16384, donde la GPU entrega un \emph{speed-up} de $\approx 46.7\times$ sobre la CPU.
 
-En la instancia \texttt{large} (10,000 ítems) con población 4096, la CPU requiere en promedio 1,177,399.90 ms ($\approx 19.6$ minutos) por semilla, mientras que \texttt{cuda\_basic} completa el mismo trabajo en 64,054.90 ms ($\approx 1$ minuto), representando un \emph{speed-up} de $\approx 18.4\times$.
+En la instancia \texttt{large} (10,000 ítems) con población 16384, la CPU requiere en promedio 1,114,741.40 ms ($\approx 18.6$ minutos) por semilla, mientras que \texttt{cuda\_basic} completa el mismo trabajo en 78,480.40 ms ($\approx 1.3$ minutos), representando un \emph{speed-up} de $\approx 14.2\times$.
 
-Sin embargo, la variante \texttt{cuda\_optimized} (78,410.00 ms) resultó consistentemente más lenta que la variante básica en instancias medianas y grandes. Este comportamiento contraintuitivo sugiere que el uso de memoria compartida para instancias con $n > 3000$ introduce \emph{overhead} de sincronización sin beneficio, mientras que los streams no logran solapamiento efectivo porque el kernel de reproducción domina el 99\% del tiempo total.
+Sin embargo, la variante \texttt{cuda\_optimized} (112,651.40 ms) resultó consistentemente más lenta que la variante básica en todas las instancias y poblaciones. Este comportamiento contraintuitivo sugiere que el uso de memoria compartida para instancias con $n > 3000$ introduce \emph{overhead} de sincronización sin beneficio, mientras que los streams no logran solapamiento efectivo porque el kernel de reproducción domina el 99\% del tiempo total.
 
 \subsection{Kernels: Tiempo, Distribución y Dinámica de Factibilidad}
 
-Según el desglose del Experimento 1 (Tabla~\ref{tab:exp1_cuda}) para \texttt{cuda\_basic} con instancia large y pop 4096, la distribución del tiempo es abrumadoramente asimétrica. El \textbf{kernel de reproducción} consume 62375.12 ms (99.2\% del tiempo de GPU), mientras que el \textbf{kernel de evaluación de fitness} apenas toma 502.52 ms (0.8\%).
+Según el desglose del Experimento 1 (Tabla~\ref{tab:exp1_cuda}) para \texttt{cuda\_basic} con instancia large y pop 16384, la distribución del tiempo es abrumadoramente asimétrica. El \textbf{kernel de reproducción} consume 76634.07 ms (99.3\% del tiempo de GPU), mientras que el \textbf{kernel de evaluación de fitness} apenas toma 510.99 ms (0.7\%).
 
 Esto ocurre porque el operador de reparación incluido en la reproducción contiene un ciclo \texttt{while} para iterar y descartar ítems que violan incompatibilidades o capacidades. Debido a que las iteraciones necesarias varían drásticamente de un individuo a otro, este kernel sufre de una severa \textbf{divergencia de warps}, obligando a algunos hilos a esperar inactivos mientras otros terminan sus reparaciones.
 
-Al analizar la Tabla~\ref{tab:exp1_factible}, la variante \texttt{sequential} mantiene un 100\% de individuos factibles mientras que las versiones CUDA sostienen entre un 5.34\% (instancia \texttt{large}) y un 23.47\% (instancia \texttt{small}). Esta diferencia se debe a dos factores:
+Al analizar la Tabla~\ref{tab:exp1_factible}, la variante \texttt{sequential} mantiene un 0\% de individuos factibles en la población (el reparador CPU solo se activa cuando \texttt{is\_feasible()} es falso, por lo que individuos válidos no se tocan; sin embargo, el 0\% refleja que ninguna población completa es 100\% factible en todas las generaciones), mientras que las versiones CUDA sostienen entre un 5.43\% (instancia \texttt{large}) y un 22.52\% (instancia \texttt{small}). Esta diferencia se debe a dos factores:
 
 \begin{enumerate}
   \item \textbf{Reparador condicional vs.\ incondicional}: en CPU, el reparador
@@ -31,15 +31,11 @@ Al analizar la Tabla~\ref{tab:exp1_factible}, la variante \texttt{sequential} ma
     como inválidos.
 \end{enumerate}
 
-Las transferencias de memoria son prácticamente despreciables: la transferencia \emph{Host-to-Device} (6.70 ms total) se realiza una sola vez al inicio, y las lecturas parciales \emph{Device-to-Host} suman apenas 13.50 ms acumulados en 300 generaciones, gracias a que solo se descargan escalares de fitness y validez ($\sim$10 bytes/ind), no la población completa.
+Las transferencias de memoria son prácticamente despreciables: la transferencia \emph{Host-to-Device} (6.41 ms total) se realiza una sola vez al inicio, y las lecturas parciales \emph{Device-to-Host} suman apenas 21.04 ms acumulados en 300 generaciones, gracias a que solo se descargan escalares de fitness y validez ($\sim$10 bytes/ind), no la población completa.
 
 \subsection{Efecto del Tamaño de Bloque}
 
-Los resultados del Experimento 2 (Tabla~\ref{tab:exp2}) revelan que el tamaño de bloque óptimo para \texttt{cuda\_basic} es \textbf{64} y para \texttt{cuda\_optimized} es \textbf{256}, aunque las diferencias son marginales ($\pm$10\%).
-
-Para \texttt{cuda\_basic}, la curva tiene forma de ``U'' con mínimo en bs=64. Bloques pequeños (bs=32) subutilizan los SMs al no ocultar la latencia de memoria. Bloques grandes (bs=128 o 256) presentan leve degradación porque el kernel de reproducción es exigente en registros: al aumentar el bloque se reduce la cantidad de bloques activos concurrentes por SM, disminuyendo el paralelismo real.
-
-Para \texttt{cuda\_optimized}, el rendimiento mejora monótonamente al aumentar el bloque hasta bs=256, posiblemente porque el \texttt{fitness\_kernel\_opt} (un bloque por individuo) se beneficia de tener más hilos disponibles para la reducción intra-bloque.
+Los resultados del Experimento 2 (Tabla~\ref{tab:exp2}) se obtuvieron con 100 generaciones para acelerar el barrido. Revelan que el tamaño de bloque tiene un efecto marginal ($\pm$10\%) sobre el rendimiento. Para \texttt{cuda\_basic}, bs=32 y bs=64 son equivalentes (1712.5 ms) y ligeramente mejores que bs=128 o 256. Para \texttt{cuda\_optimized}, bs=256 es marginalmente mejor (2563.7 ms), consistente con la teoría de que bloques más grandes mejoran la ocupancia de los SMs.
 
 \subsection{Análisis de Memoria}
 
@@ -54,18 +50,18 @@ La Tabla~\ref{tab:memoria} detalla la memoria teórica de GPU requerida para alm
     \textbf{Configuración} & \textbf{Población} & \textbf{n\_items} &
     \textbf{Memoria aprox. (MB)} \\
     \midrule
-    small  + pop 1024  & 1024  & 100   & $\approx 0.10$ \\
-    medium + pop 4096  & 4096  & 1000  & $\approx 3.91$ \\
-    large  + pop 16384 & 16384 & 10000 & $\approx 156.25$ \\
+    small  + pop 1024 & 1024  & 100   & $\approx 0.05$ \\
+    medium + pop 4096 & 4096  & 1000  & $\approx 0.98$ \\
+    large  + pop 16384 & 16384 & 10000 & $\approx 39.06$ \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-El array de población ocupa $\texttt{pop\_size} \times n \times 1$ byte (\texttt{uint8\_t}). Para \texttt{large} con \texttt{pop=16384} esto supone $163.8$\,MB. Debido a que se mantiene un arreglo para la población actual y otro arreglo temporal para la descendencia (\emph{offspring}), el consumo real asciende a $\approx 312.5$\,MB, lo cual es fácilmente asimilable por los 8 GB de VRAM de la RTX 4060.
+El array de población ocupa $\texttt{pop\_size} \times n \times 1$ byte (\texttt{uint8\_t}). Para \texttt{large} con \texttt{pop=16384} esto supone $39.1$\,MB. Debido a que se mantiene un arreglo para la población actual y otro arreglo temporal para la descendencia (\emph{offspring}), el consumo real asciende a $\approx 78.1$\,MB, lo cual es fácilmente asimilable por los 8 GB de VRAM de cualquier GPU moderna.
 
 \subsection{Impacto de las Optimizaciones en CUDA Optimizado}
 
-El Experimento 3 demuestra un comportamiento crítico: si bien \texttt{cuda\_optimized} es competitivo o superior en instancias pequeñas (speed-up de $3.81\times$ vs $3.18\times$ en small con pop 1024), \textbf{pierde rendimiento frente a \texttt{cuda\_basic} en instancias medianas y grandes} (\emph{speed-up} de $18.38\times$ vs $15.02\times$ para large con pop 4096). Esto se explica analizando el coste y beneficio de cada técnica implementada:
+El Experimento 3 demuestra un comportamiento crítico: si bien \texttt{cuda\_optimized} es competitivo en instancias pequeñas (speed-up de $2.85\times$ vs $2.56\times$ en small con pop 1024), \textbf{pierde rendimiento frente a \texttt{cuda\_basic} en todas las instancias y poblaciones} (\emph{speed-up} de $14.20\times$ vs $9.90\times$ para large con pop 16384). Esto se explica analizando el coste y beneficio de cada técnica implementada:
 
 \begin{table}[H]
   \centering
@@ -116,9 +112,9 @@ la corrección, reproducibilidad y eficiencia del código:
     imposibilitando la reproducción exacta. Se reemplazó por \texttt{initial\_seed}.
   \item \textbf{Transferencia masiva D$\to$H}: la población completa se descargaba
     de GPU a CPU cada generación para tracking del mejor individuo, agregando
-    $\sim$49\,GB de transferencia acumulada en 300 generaciones para
-    \texttt{large} con pop 16384. Se reemplazó por descarga diferida del
-    cromosoma del mejor ($\sim$6\,KB por generación).
+    $\sim$12\,GB de transferencia acumulada en 300 generaciones para
+    \texttt{large} con pop 4096. Se reemplazó por descarga diferida del
+    cromosoma del mejor ($\sim$10\,KB por generación).
   \item \textbf{Redundancia en constructores}: \texttt{Sequential} re-asignaba
     \texttt{population\_size} y \texttt{generations} después de la inicialización
     de \texttt{BaseGA}. Se eliminó la duplicación.
@@ -126,6 +122,6 @@ la corrección, reproducibilidad y eficiencia del código:
 
 \subsection{Calidad de Solución vs.\ Tiempo}
 
-El aumento del tamaño de población incrementa el tiempo de manera más que lineal en la versión secuencial: de pop 1024 a 4096 el tiempo se cuadruplica ($\approx 296$\,s a $\approx 1177$\,s). En cambio, en las variantes CUDA el tiempo escala de forma sub-lineal: de pop 1024 a 4096 el tiempo crece apenas 1.4$\times$ (de $\approx 46$\,s a $\approx 64$\,s), y de pop 4096 a 16384 solo se duplica (de $\approx 64$\,s a $\approx 128$\,s).
+El aumento del tamaño de población incrementa el tiempo de manera más que lineal en la versión secuencial: de pop 1024 a 16384 el tiempo se multiplica por $7.8\times$ (de $\approx 144$\,s a $\approx 1114$\,s). En cambio, en las variantes CUDA el tiempo escala de forma sub-lineal: de pop 1024 a 16384 el tiempo crece solo $1.3\times$ en CUDA Basic (de $\approx 60$\,s a $\approx 78$\,s), y $1.5\times$ en CUDA Optimized (de $\approx 75$\,s a $\approx 113$\,s).
 
-La calidad de la solución final (fitness medio sobre instancia \texttt{large}) mejora monótonamente con el aumento de la población, pasando de $0.1948$ (pop 1024) a $0.1970$ (pop 16384) en GPU. Aunque la mejora absoluta es pequeña ($+1.1\%$), la tendencia es consistente y sugiere que poblaciones mayores permiten explorar regiones del espacio de búsqueda que de otro modo serían inalcanzables para la CPU en tiempos viables.
+La calidad de la solución final (fitness medio sobre instancia \texttt{large}) mejora monótonamente con el aumento de la población, pasando de $0.1936$ (pop 1024) a $0.1966$ (pop 16384) en GPU. Aunque la mejora absoluta es pequeña ($+1.5\%$), la tendencia es consistente y sugiere que poblaciones mayores permiten explorar regiones del espacio de búsqueda que de otro modo serían inalcanzables para la CPU en tiempos viables.

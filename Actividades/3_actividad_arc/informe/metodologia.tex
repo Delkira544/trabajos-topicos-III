@@ -20,21 +20,20 @@
 
 \subsection{Descripción de los Cuatro Experimentos}
 
-\paragraph{EXP 1 — Diseño principal (269 ejecuciones).}
+\paragraph{EXP 1 — Diseño principal (270 ejecuciones).}
 Compara las tres variantes en los tres tamaños de instancia y los tres tamaños de
 población, con 10 semillas por celda. Mide tiempo total, tiempo de kernels,
-porcentaje de soluciones factibles y calidad de solución. La combinación
-\texttt{large} con \texttt{pop=16384} y variante \texttt{sequential} se omitió
-por tiempo de ejecución excesivo.
+porcentaje de soluciones factibles y calidad de solución.
 
 \paragraph{EXP 2 — Efecto del tamaño de bloque (80 ejecuciones).}
 Fija instancia \texttt{large} y población 4096; varía el bloque
 (\{32, 64, 128, 256\}) para las dos variantes CUDA con 10 semillas. Permite
 identificar la configuración que mejor aprovecha la ocupancia de los SMs.
 
-\paragraph{EXP 3 — Análisis de \emph{speed-up} (269 ejecuciones).}
-Para cada combinación instancia × población × semilla disponible en EXP 1
-mide el tiempo de las tres variantes y calcula \emph{speed-up} = $T_{\text{seq}} / T_{\text{GPU}}$.
+\paragraph{EXP 3 — Análisis de \emph{speed-up} (270 ejecuciones).}
+Para cada combinación instancia × población × semilla de EXP 1
+mide el tiempo de las tres variantes y calcula \emph{speed-up} =
+$T_{\text{seq}} / T_{\text{GPU}}$.
 
 \paragraph{EXP 4 — Efecto del tamaño de población (90 ejecuciones).}
 Fija instancia \texttt{large}; varía población y variante con 10 semillas. Relaciona

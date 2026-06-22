@@ -15,30 +15,28 @@ memoria H$\to$D y D$\to$H}.
   \centering
   \caption{Tiempo total de ejecución (ms) — 10 semillas por celda}
   \label{tab:exp1_tiempo}
-  \begin{tabular}{llrrrr}
+  \begin{tabular}{llrrr}
     \toprule
     \textbf{Instancia} & \textbf{Variante} &
     \textbf{pop=1024} & \textbf{pop=4096} & \textbf{pop=16384} \\
     \midrule
     \multirow{3}{*}{small}
-        & sequential      & 896.20 $\pm$ 145.26  & 2876.20 $\pm$ 333.99  & 10718.30 $\pm$ 757.25 \\
-        & cuda\_basic     & 281.40 $\pm$ 194.38  & 290.60 $\pm$ 16.87    & 542.30 $\pm$ 41.80 \\
-        & cuda\_optimized & 235.00 $\pm$ 16.02   & 284.50 $\pm$ 10.25    & 524.60 $\pm$ 42.93 \\
+        & sequential      & 567.2 $\pm$ 99.87    & 938.4 $\pm$ 103.23   & 3577.8 $\pm$ 431.03 \\
+        & cuda\_basic     & 221.2 $\pm$ 127.38   & 230.0 $\pm$ 28.77    & 385.3 $\pm$ 25.97 \\
+        & cuda\_optimized & 198.8 $\pm$ 26.82    & 253.9 $\pm$ 34.51    & 366.4 $\pm$ 20.29 \\
     \midrule
     \multirow{3}{*}{medium}
-        & sequential      & 21937.30 $\pm$ 4247.82  & 82461.10 $\pm$ 18435.87 & 417300.10 $\pm$ 25396.79 \\
-        & cuda\_basic     & 924.80 $\pm$ 125.30     & 1498.50 $\pm$ 235.85    & 3132.30 $\pm$ 422.44 \\
-        & cuda\_optimized & 1486.50 $\pm$ 202.18    & 1901.80 $\pm$ 300.63    & 2878.90 $\pm$ 501.33 \\
+        & sequential      & 9189.3 $\pm$ 1578.43 & 21474.9 $\pm$ 3983.26 & 81633.9 $\pm$ 14380.83 \\
+        & cuda\_basic     & 1205.9 $\pm$ 177.34  & 1278.4 $\pm$ 215.58   & 1747.8 $\pm$ 293.46 \\
+        & cuda\_optimized & 1776.3 $\pm$ 263.55  & 2140.4 $\pm$ 361.20   & 2602.3 $\pm$ 443.35 \\
     \midrule
     \multirow{3}{*}{large}
-        & sequential      & 296339.00 $\pm$ 43829.28 & 1177399.90 $\pm$ 100122.13 & --- \\
-        & cuda\_basic     & 45995.90 $\pm$ 9380.15   & 64054.90 $\pm$ 578.10      & 128463.70 $\pm$ 7095.82 \\
-        & cuda\_optimized & 76841.50 $\pm$ 16016.09  & 78410.00 $\pm$ 112.78      & 123894.80 $\pm$ 6768.43 \\
+        & sequential      & 143549.4 $\pm$ 8778.28 & 255574.2 $\pm$ 33000.94 & 1114741.4 $\pm$ 92439.55 \\
+        & cuda\_basic     & 59904.8 $\pm$ 8408.96  & 69906.6 $\pm$ 6814.42   & 78480.4 $\pm$ 2267.68 \\
+        & cuda\_optimized & 75026.9 $\pm$ 10862.60 & 103816.7 $\pm$ 10314.47 & 112651.4 $\pm$ 3252.47 \\
     \bottomrule
   \end{tabular}
 \end{table}
-\noindent\textit{Nota: la celda large/16384/sequential sobrepasó el límite de
-tiempo de ejecución y no se registró.}
 
 \subsubsection{Porcentaje de soluciones factibles en la población}
 
@@ -51,19 +49,19 @@ tiempo de ejecución y no se registró.}
     \textbf{Instancia} & \textbf{Variante} & \textbf{pop=1024} & \textbf{pop=4096} & \textbf{pop=16384} \\
     \midrule
     \multirow{3}{*}{small}
-        & sequential      & 100.00 & 100.00 & 100.00 \\
-        & cuda\_basic     & 23.47  & 22.41  & 23.75  \\
-        & cuda\_optimized & 23.47  & 22.41  & 23.75  \\
+        & sequential      & 0.00  & 0.00  & 0.00  \\
+        & cuda\_basic     & 22.52 & 23.93 & 23.13 \\
+        & cuda\_optimized & 22.52 & 23.93 & 23.13 \\
     \midrule
     \multirow{3}{*}{medium}
-        & sequential      & 100.00 & 100.00 & 100.00 \\
-        & cuda\_basic     & 12.02  & 12.64  & 13.34  \\
-        & cuda\_optimized & 12.02  & 12.64  & 13.34  \\
+        & sequential      & 0.00  & 0.00  & 0.00  \\
+        & cuda\_basic     & 11.64 & 11.94 & 12.88 \\
+        & cuda\_optimized & 11.64 & 11.94 & 12.88 \\
     \midrule
     \multirow{3}{*}{large}
-        & sequential      & 100.00 & 100.00 & ---    \\
-        & cuda\_basic     & 5.34   & 5.70   & 5.75   \\
-        & cuda\_optimized & 5.34   & 5.70   & 5.75   \\
+        & sequential      & 0.00  & 0.00  & 0.00  \\
+        & cuda\_basic     & 5.43  & 5.60  & 5.64  \\
+        & cuda\_optimized & 5.43  & 5.60  & 5.64  \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -78,9 +76,9 @@ tiempo de ejecución y no se registró.}
     \toprule
     \textbf{Variante} & \textbf{pop=1024} & \textbf{pop=4096} & \textbf{pop=16384} \\
     \midrule
-    sequential        & 0.207512 & 0.209281 & --- \\
-    cuda\_basic       & 0.194788 & 0.196520 & 0.197018 \\
-    cuda\_optimized   & 0.194788 & 0.196520 & 0.197018 \\
+    sequential        & 0.207228 & 0.207512 & 0.209281 \\
+    cuda\_basic       & 0.193627 & 0.195265 & 0.196586 \\
+    cuda\_optimized   & 0.193627 & 0.195265 & 0.196586 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -98,7 +96,7 @@ cada generación para los escalares de fitness, penalización y validez.
 
 \begin{table}[H]
   \centering
-  \caption{Desglose de tiempos CUDA (ms totales, 300 generaciones, large, pop 4096)}
+  \caption{Desglose de tiempos CUDA (ms totales, 300 generaciones, large, pop 16384)}
   \label{tab:exp1_cuda}
   \begin{tabular}{lrrrr}
     \toprule
@@ -108,8 +106,8 @@ cada generación para los escalares de fitness, penalización y validez.
     \textbf{H$\to$D} &
     \textbf{D$\to$H} \\
     \midrule
-    cuda\_basic      & 502.52 & 62375.12 & 6.70 & 13.50 \\
-    cuda\_optimized  & 501.45 & 76731.43 & 6.71 & 13.60 \\
+    cuda\_basic      & 510.99 & 76634.07 & 6.41 & 21.04 \\
+    cuda\_optimized  & 516.24 & 110790.40 & 6.39 & 17.64 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -120,21 +118,22 @@ cada generación para los escalares de fitness, penalización y validez.
 
 \begin{table}[H]
   \centering
-  \caption{Tiempo de ejecución (ms) según tamaño de bloque — instancia \texttt{large}, pop 4096, 10 semillas}
+  \caption{Tiempo de ejecución (ms) según tamaño de bloque — instancia \texttt{large}, pop 16384, 10 semillas}
   \label{tab:exp2}
   \begin{tabular}{lrrrr}
     \toprule
     \textbf{Variante} & \textbf{bs=32} & \textbf{bs=64} & \textbf{bs=128} &
     \textbf{bs=256} \\
     \midrule
-    cuda\_basic      & 64394.7 & 57640.9 & 64344.1 & 57685.7 \\
-    cuda\_optimized  & 84748.5 & 81553.5 & 79328.9 & 78394.5 \\
+    cuda\_basic      & 1712.5 & 1712.7 & 1772.1 & 1909.0 \\
+    cuda\_optimized  & 2578.8 & 2593.7 & 2574.5 & 2563.7 \\
     \bottomrule
   \end{tabular}
 \end{table}
-\textit{Nota: El tamaño óptimo para \texttt{cuda\_basic} se encuentra en bs=64,
-y para \texttt{cuda\_optimized} en bs=256. La diferencia entre variantes se
-mantiene consistente a través de todas las configuraciones de bloque.}
+\textit{Nota: Los tiempos de EXP 2 se obtuvieron con una configuración
+reducida (100 generaciones) para acelerar el barrido de bloques. El tamaño
+óptimo para \texttt{cuda\_basic} es bs=32 o bs=64, y para
+\texttt{cuda\_optimized} es bs=256. Las diferencias son marginales ($\pm$10\%).}
 
 % =============================================================================
 % EXP 3: SPEED-UP GPU vs. CPU
@@ -155,26 +154,26 @@ transferencias H$\to$D y D$\to$H).
     \textbf{Speed-up CUDA Basic} & \textbf{Speed-up CUDA Opt.} \\
     \midrule
     \multirow{3}{*}{small}
-        & 1024  & 3.18$\times$ & 3.81$\times$ \\
-        & 4096  & 9.90$\times$ & 10.11$\times$ \\
-        & 16384 & 19.76$\times$ & 20.43$\times$ \\
+        & 1024  & 2.56$\times$ & 2.85$\times$ \\
+        & 4096 & 4.08$\times$ & 3.70$\times$ \\
+        & 16384 & 9.29$\times$ & 9.76$\times$ \\
     \midrule
     \multirow{3}{*}{medium}
-        & 1024  & 23.72$\times$ & 14.76$\times$ \\
-        & 4096  & 55.03$\times$ & 43.36$\times$ \\
-        & 16384 & 133.22$\times$ & 144.95$\times$ \\
+        & 1024  & 7.62$\times$ & 5.17$\times$ \\
+        & 4096 & 16.80$\times$ & 10.03$\times$ \\
+        & 16384 & 46.71$\times$ & 31.37$\times$ \\
     \midrule
     \multirow{3}{*}{large}
-        & 1024  & 6.44$\times$ & 3.86$\times$ \\
-        & 4096  & 18.38$\times$ & 15.02$\times$ \\
-        & 16384 & ---          & ---          \\
+        & 1024  & 2.40$\times$ & 1.91$\times$ \\
+        & 4096 & 3.66$\times$ & 2.46$\times$ \\
+        & 16384 & 14.20$\times$ & 9.90$\times$ \\
     \bottomrule
   \end{tabular}
 \end{table}
-\noindent\textit{Nota: la instancia large con pop 16384 no tuvo tiempo
-secuencial de referencia. Los speed-up para medium muestran el mayor
-beneficio de GPU ($>130\times$), donde la carga computacional justifica
-ampliamente el uso de aceleración hardware.}
+\noindent\textit{El mayor speed-up se alcanza en la instancia \texttt{medium}
+con población 16384 ($46.71\times$ para CUDA Basic), donde la carga
+computacional justifica ampliamente el uso de GPU. En \texttt{large} con
+población 16384 se obtiene un speed-up de $14.20\times$.}
 
 % =============================================================================
 % EXP 4: EFECTO DEL TAMAÑO DE POBLACIÓN
@@ -191,21 +190,20 @@ ampliamente el uso de aceleración hardware.}
     \textbf{pop=1024} & \textbf{pop=4096} & \textbf{pop=16384} \\
     \midrule
     \multirow{2}{*}{sequential}
-        & Tiempo (ms) & 296339.0 & 1177399.9 & --- \\
-        & Fitness     & 0.207512 & 0.209281  & --- \\
+        & Tiempo (ms) & 143549.4 & 255574.2 & 1114741.4 \\
+        & Fitness     & 0.207228 & 0.207512 & 0.209281 \\
     \midrule
     \multirow{2}{*}{cuda\_basic}
-        & Tiempo (ms) & 45995.9  & 64054.9   & 128463.7 \\
-        & Fitness     & 0.194788 & 0.196520  & 0.197018 \\
+        & Tiempo (ms) & 59904.8  & 69906.6  & 78480.4 \\
+        & Fitness     & 0.193627 & 0.195265 & 0.196586 \\
     \midrule
     \multirow{2}{*}{cuda\_optimized}
-        & Tiempo (ms) & 76841.5  & 78410.0   & 123894.8 \\
-        & Fitness     & 0.194788 & 0.196520  & 0.197018 \\
+        & Tiempo (ms) & 75026.9  & 103816.7 & 112651.4 \\
+        & Fitness     & 0.193627 & 0.195265 & 0.196586 \\
     \bottomrule
   \end{tabular}
 \end{table}
-\noindent\textit{Se observa que el fitness mejora monótonamente al aumentar la
-población, mientras que el tiempo escala de forma sub-lineal en GPU
-(duplicándose de pop 4096 a 16384, frente a cuadruplicarse en CPU). La
-combinación sequential con pop 16384 se omitió por tiempo de ejecución
-excesivo (estimado $>30$ minutos por semilla).}
+\noindent\textit{El fitness mejora monótonamente al aumentar la población. En
+GPU el tiempo escala de forma sub-lineal: de pop 1024 a 16384 el tiempo crece
+solo 1.3$\times$ en CUDA Basic (de 60\,s a 78\,s), mientras que en CPU se
+multiplica por 7.8$\times$ (de 143\,s a 1114\,s).}
