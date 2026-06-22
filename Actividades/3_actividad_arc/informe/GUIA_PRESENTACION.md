@@ -6,7 +6,7 @@
 
 ## Diapositiva 1 — Portada
 - Título: "Optimización paralela en GPU del problema extendido de la mochila mediante CUDA"
-- Integrantes: Daniel Burgos, Christian Alarcón
+- Integrantes: Daniel Burgos, Christian verd
 - Fecha de entrega
 - Asignatura: Tópicos III
 

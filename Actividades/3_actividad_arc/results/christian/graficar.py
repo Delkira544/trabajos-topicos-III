@@ -68,8 +68,8 @@ INSTANCE_LABEL = {
     "large": "Grande (10000 ítems)",
 }
 
-POP_ORDER = [512, 1024, 4096]
-POP_MARKERSIZE = {512: 35, 1024: 75, 4096: 140}
+POP_ORDER = [1024, 4096, 16384]
+POP_MARKERSIZE = {1024: 75, 4096: 140, 16384: 220}
 
 FILES = {
     "exp1": "exp1_main_design.csv",
