@@ -1,0 +1,16 @@
+# Solo I/O de imágenes, manejo de arreglos y visualización (permitido por la pauta).
+# El procesamiento evaluado lo implementa el grupo (CPU/CUDA), no estas librerías.
+numpy>=1.24
+Pillow>=10.0
+pandas>=2.0
+streamlit>=1.30
+altair>=5.0        # gráficos dentro de streamlit
+
+# --- Stack GPU pedido por el profesor (RTX 4060, Ada, CC 8.9) ---
+# Trae cuTile Python + el compilador tileiras + nvcc 13.3 + runtime CUDA 13.3
+# dentro del venv (NO requiere instalar el CUDA Toolkit del sistema).
+# REQUIERE driver NVIDIA R580+ para EJECUTAR en GPU (verificado con 610.62).
+cuda-tile[tileiras]>=1.4   # import: `import cuda.tile`
+cuda-toolkit[nvrtc]>=13.3  # nvrtc.dll que CuPy necesita para sus kernels
+cupy-cuda13x>=14           # manejo de arrays GPU + streams (NO el filtrado; permitido)
+
